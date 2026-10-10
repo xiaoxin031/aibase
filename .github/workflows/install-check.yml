@@ -1,0 +1,39 @@
+name: install-check
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * 1'
+jobs:
+  unix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: one-line install
+        run: curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | sh
+      - name: use it
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          aibase version
+          aibase refresh >/dev/null
+          aibase context
+          aibase doctor
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: one-line install
+        shell: pwsh
+        run: irm https://raw.githubusercontent.com/${{ github.repository }}/main/install.ps1 | iex
+      - name: use it
+        shell: pwsh
+        run: |
+          $env:Path = "$env:LOCALAPPDATA\Programs\aibase;$env:Path"
+          aibase version
+          aibase refresh | Out-Null
+          aibase context
+          aibase doctor
+          if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }

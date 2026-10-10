@@ -32,10 +32,7 @@ func TestNormalizedHardware(t *testing.T) {
 	}
 }
 func TestCompactVersions(t *testing.T) {
-	if got := toolVersion("codex", "WARNING: helper aliases unavailable\ncodex-cli 1.2.3"); got != "" {
-		t.Fatal(got)
-	}
-	for _, tc := range []struct{ name, in, want string }{{"ffmpeg", "ffmpeg version 7.1.1 Copyright\nconfiguration: huge", "7.1.1"}, {"kubectl", "Client Version: v1.32.2\nKustomize Version: v5.5.0", "1.32.2"}, {"java", "java version \"21.0.2\"\nRuntime Environment", "21.0.2"}, {"go", "go version go1.24.2 darwin/arm64", "1.24.2"}} {
+	for _, tc := range []struct{ name, in, want string }{{"codex", "WARNING: helper aliases unavailable\ncodex-cli 1.2.3", "1.2.3"}, {"gradle", "\n------------------------------------------------------------\nGradle 8.14.3\n------------------------------------------------------------", "8.14.3"}, {"ffmpeg", "ffmpeg version 7.1.1 Copyright\nconfiguration: huge", "7.1.1"}, {"kubectl", "Client Version: v1.32.2\nKustomize Version: v5.5.0", "1.32.2"}, {"java", "java version \"21.0.2\"\nRuntime Environment", "21.0.2"}, {"go", "go version go1.24.2 darwin/arm64", "1.24.2"}} {
 		if got := toolVersion(tc.name, tc.in); got != tc.want {
 			t.Fatal(got)
 		}

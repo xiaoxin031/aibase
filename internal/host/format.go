@@ -15,12 +15,10 @@ import (
 
 var versionNumber = regexp.MustCompile(`\d+(?:\.\d+)+(?:[-+._a-zA-Z0-9]*)?`)
 
+// toolVersion takes the first version-looking token near the top; some tools
+// (gradle, java) print a banner or blank line before it.
 func toolVersion(name, s string) string {
-	s = firstLines(s, 1)
-	if v := versionNumber.FindString(s); v != "" {
-		return v
-	}
-	return ""
+	return versionNumber.FindString(firstLines(s, 5))
 }
 func sensitivePaths(platform string) []string {
 	p := []string{".ssh", ".aws/credentials", ".azure", ".env"}
@@ -154,16 +152,17 @@ func Summary(r Report) string {
 	}
 	osName := value(r, "os")
 	if v := value(r, "os_version"); v != "" {
-		if strings.HasPrefix(strings.ToLower(v), osName) {
-			osName = v
-		} else {
-			osName += " " + v
+		osName = v
+		if value(r, "os") == "darwin" {
+			osName = "macOS " + v
 		}
 	}
 	add("", strings.TrimSpace(osName+"/"+value(r, "architecture")))
 	cpu := value(r, "cpu_model")
-	if n := value(r, "cpu_cores"); n != "" {
+	if n := value(r, "cpu_cores"); n != "" && cpu != "" {
 		cpu += " (" + n + " cores)"
+	} else if n != "" {
+		cpu = n + " cores"
 	}
 	add("CPU ", strings.TrimSpace(cpu))
 	if n, ok := r["memory_total"].Value.(float64); ok && r["memory_total"].Status == cache.OK {
@@ -181,7 +180,7 @@ func Summary(r Report) string {
 	}
 	add("shell ", value(r, "shell"))
 	for _, k := range []string{"ssh", "container", "wsl", "root", "admin"} {
-		if value(r, k) == "true" {
+		if value(r, k) == "true" && (k != "admin" || value(r, "root") != "true") {
 			add("", k)
 		}
 	}
