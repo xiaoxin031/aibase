@@ -83,7 +83,8 @@ verify() {
 }
 
 asset="aibase-$os-$arch"
-if [ "${AIBASE_FROM_SOURCE:-}" = 1 ] || [ -n "$local_src" ]; then
+# A checkout builds locally when Go is available; otherwise it installs the release.
+if [ "${AIBASE_FROM_SOURCE:-}" = 1 ] || { [ -n "$local_src" ] && command -v go >/dev/null 2>&1; }; then
   build_from_source
 else
   version=${AIBASE_VERSION:-latest}

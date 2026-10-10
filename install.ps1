@@ -62,7 +62,8 @@ function Build-Source {
 try {
   $exe = Join-Path $tmp 'aibase.exe'
   $trayExe = Join-Path $tmp 'aibase-tray.exe'
-  $source = $env:AIBASE_FROM_SOURCE -eq '1' -or ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot 'go.mod')))
+  $hasGo = [bool](Get-Command go -ErrorAction SilentlyContinue)
+  $source = $env:AIBASE_FROM_SOURCE -eq '1' -or ($hasGo -and $PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot 'go.mod')))
   if (-not $source) {
     Say "downloading $asset ($version)"
     try {
