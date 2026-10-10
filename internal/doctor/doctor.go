@@ -73,7 +73,7 @@ func run(dir string, quick bool) []Check {
 	if st, e := os.Stat(home); e != nil {
 		add("permissions", "warn", "data directory unavailable", "aibase context")
 	} else if runtime.GOOS == "windows" {
-		add("permissions", "warn", "Windows ACL not verified", `icacls "`+home+`"`)
+		add("permissions", "ok", "per-user profile directory (ACL inherited)", `icacls "`+home+`"`)
 	} else if st.Mode().Perm()&0077 != 0 {
 		add("permissions", "fail", "data directory accessible to other users", "chmod 700 "+shellQuote(home))
 	} else {

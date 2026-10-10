@@ -221,9 +221,12 @@ func Text(r Report) string {
 			}
 		}
 		if f.Status == cache.Timeout || f.Status == cache.Denied || f.Status == cache.Stale || ((k == "listeners" || k == "services" || k == "resources" || k == "containers") && f.Status != cache.OK) {
-			lines = append(lines, k+": "+string(f.Status))
-		}
-		if f.Status != cache.OK && f.Status != cache.Missing {
+			line := k + ": " + string(f.Status)
+			if m, ok := f.Value.(map[string]any); ok && m["reason"] != nil {
+				line += " (" + fmt.Sprint(m["reason"]) + ")"
+			}
+			lines = append(lines, line)
+		} else if f.Status != cache.OK && f.Status != cache.Missing {
 			if m, ok := f.Value.(map[string]any); ok && m["reason"] != nil {
 				lines = append(lines, k+": "+string(f.Status)+" ("+fmt.Sprint(m["reason"])+")")
 			}
