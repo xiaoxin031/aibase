@@ -4,7 +4,6 @@
 [live] Machine: {{OS}}/{{ARCH}}; CPU {{CPU}} cores
 
 [live] Project directory: {{CWD}}
-Manifests: 
 
 [cache missing] Skill index unavailable; aibase skill ls
 

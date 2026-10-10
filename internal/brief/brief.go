@@ -84,14 +84,16 @@ func Build(dir string) Report {
 	if root == "" {
 		root = dir
 	}
-	project := "[live] Project directory: " + root + "\nManifests: "
+	project := "[live] Project directory: " + root
 	var manifests []string
 	for _, n := range []string{"go.mod", "package.json", "pom.xml", "build.gradle", "Cargo.toml", "pyproject.toml", "Makefile", "Dockerfile"} {
 		if st, e := os.Lstat(filepath.Join(root, n)); e == nil && st.Mode().IsRegular() {
 			manifests = append(manifests, n)
 		}
 	}
-	project += strings.Join(manifests, ", ")
+	if len(manifests) > 0 {
+		project += "\nManifests: " + strings.Join(manifests, ", ")
+	}
 	projectFact, projectOK := store.GetBounded(ProjectKey(root), 64<<10)
 	if s, ok := projectFact.Value.(string); projectOK && ok && s != "" {
 		project += "\n" + Label(projectFact, now) + " " + s
