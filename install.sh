@@ -68,7 +68,8 @@ build_from_source() {
     src=$tmp/src
   fi
   say "building from source"
-  (cd "$src" && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$tmp/aibase" ./cmd/aibase)
+  ver=$(git -C "$src" describe --tags --always --dirty 2>/dev/null | sed 's/^v//') || ver=""
+  (cd "$src" && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/xiaoxin031/aibase/internal/memory.version=${ver:-dev}" -o "$tmp/aibase" ./cmd/aibase)
   if [ "${AIBASE_TRAY:-}" = 1 ]; then
     tray_cgo=0
     [ "$os" != darwin ] || tray_cgo=1

@@ -45,7 +45,9 @@ function Build-Source {
     $env:CGO_ENABLED = '0'
     Push-Location $src
     try {
-      & go build -trimpath -ldflags '-s -w' -o (Join-Path $tmp 'aibase.exe') ./cmd/aibase
+      $ver = (& git describe --tags --always --dirty 2>$null) -replace '^v', ''
+      if (-not $ver) { $ver = 'dev' }
+      & go build -trimpath -ldflags "-s -w -X github.com/xiaoxin031/aibase/internal/memory.version=$ver" -o (Join-Path $tmp 'aibase.exe') ./cmd/aibase
       if ($LASTEXITCODE -ne 0) { throw 'core build failed' }
     } finally { Pop-Location }
     if ($env:AIBASE_TRAY -eq '1') {
