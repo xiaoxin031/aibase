@@ -152,7 +152,15 @@ func Summary(r Report) string {
 			parts = append(parts, label+v)
 		}
 	}
-	add("", strings.TrimSpace(value(r, "os")+" "+value(r, "os_version")+"/"+value(r, "architecture")))
+	osName := value(r, "os")
+	if v := value(r, "os_version"); v != "" {
+		if strings.HasPrefix(strings.ToLower(v), osName) {
+			osName = v
+		} else {
+			osName += " " + v
+		}
+	}
+	add("", strings.TrimSpace(osName+"/"+value(r, "architecture")))
 	cpu := value(r, "cpu_model")
 	if n := value(r, "cpu_cores"); n != "" {
 		cpu += " (" + n + " cores)"

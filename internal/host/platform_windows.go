@@ -71,7 +71,7 @@ func (i *Inspector) platform() []probe {
 
 func (i *Inspector) runtime() []probe {
 	return []probe{
-		i.ps("listeners", time.Minute, `$names=@{}; Get-Process | ForEach-Object { $names[$_.Id]=$_.ProcessName }; @(Get-NetTCPConnection -State Listen -ErrorAction Stop | ForEach-Object { $n=$names[[int]$_.OwningProcess]; if (!$n) {$n='unknown'}; [pscustomobject]@{port=$_.LocalPort;proto='tcp';bind=$_.LocalAddress;process=$n;pid=$_.OwningProcess} }) | ConvertTo-Json -Compress`),
+		i.listeners(),
 		i.ps("services", time.Minute, `Get-CimInstance Win32_Service -Filter "State='Running'" -ErrorAction Stop | ForEach-Object { $exe=$null; if ($_.PathName -match '^"([^"]+)"') {$exe=$matches[1]} elseif ($_.PathName -match '^(.*?\.exe)(?:\s|$)') {$exe=$matches[1]}; $vendor=$null; if ($exe) { $vendor=(Get-Item -LiteralPath $exe -ErrorAction SilentlyContinue).VersionInfo.CompanyName }; if (!$vendor -or $vendor -notmatch 'Microsoft') {$_.Name} }`),
 		i.containers(),
 		i.ps("resources", time.Minute, `$names=@{}; Get-Process | ForEach-Object { $names[$_.Id]=$_.ProcessName }; $total=(Get-CimInstance Win32_ComputerSystem -ErrorAction Stop).TotalPhysicalMemory; @(Get-CimInstance Win32_PerfFormattedData_PerfProc_Process -ErrorAction Stop | Where-Object {$_.IDProcess -gt 0} | Sort-Object PercentProcessorTime -Descending | Select-Object -First 10 | ForEach-Object { [pscustomobject]@{pid=$_.IDProcess;cpu=[double]$_.PercentProcessorTime;mem=100.0*$_.WorkingSetPrivate/$total;name=$(if ($names[[int]$_.IDProcess]) {$names[[int]$_.IDProcess]} else {$_.Name -replace '#\d+$',''})} }) | ConvertTo-Json -Compress`),

@@ -27,9 +27,10 @@ func DefaultBudget() time.Duration {
 	return Budget
 }
 
+// A cold PowerShell CIM query alone can take several seconds on Windows.
 func commandTimeout() time.Duration {
 	if runtime.GOOS == "windows" {
-		return 3 * time.Second
+		return 8 * time.Second
 	}
 	return Budget
 }

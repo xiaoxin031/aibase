@@ -101,6 +101,9 @@ func (i *Inspector) inspect(ctx context.Context, level int, tools bool) Report {
 	budget := i.Budget
 	if budget <= 0 {
 		budget = DefaultBudget()
+		if level >= 1 && runtime.GOOS == "windows" {
+			budget = 12 * time.Second
+		}
 	}
 	ctx, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
