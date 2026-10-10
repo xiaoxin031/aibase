@@ -39,6 +39,9 @@ func summaryText(v any) string {
 			if detail, ok := x["detail"]; ok {
 				s := name + ": " + summaryText(detail)
 				if fix, ok := x["fix"].(string); ok && fix != "" {
+					if len(fix) > 60 {
+						fix = "aibase doctor"
+					}
 					s += " → " + fix
 				}
 				return s

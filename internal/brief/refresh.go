@@ -39,6 +39,8 @@ func Refresh(ctx context.Context, level string) (host.Report, error) {
 func refresh(ctx context.Context, store *cache.Store, root, level string) (host.Report, error) {
 	i := host.New()
 	i.Cache = store
+	// Refresh runs detached from any session, so it can afford slow first probes.
+	i.Budget = 10 * time.Second
 	r, e := i.InspectLevel(ctx, level)
 	if e != nil {
 		return nil, e

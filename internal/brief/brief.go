@@ -110,6 +110,9 @@ func Build(dir string) Report {
 	}
 	if f, ok := store.GetBounded("skills:index:v1", 64<<10); ok {
 		skillText = Label(f, now) + " Skills (details: aibase skill show <name>): " + summaryText(f.Value)
+		if m, ok := f.Value.(map[string]any); ok && num(m["total"]) == 0 {
+			skillText = ""
+		}
 	} else {
 		gaps += "; skill index cache missing"
 	}
@@ -133,9 +136,11 @@ func Build(dir string) Report {
 	}
 	r.Memory = "[memory] " + hist
 	// Reserve the small facts sections first; all separators count toward the cap.
-	sections := []string{r.Machine, r.Project, r.Skills}
-	if r.Gaps != "" {
-		sections = append(sections, r.Gaps)
+	var sections []string
+	for _, s := range []string{r.Machine, r.Project, r.Skills, r.Gaps} {
+		if s != "" {
+			sections = append(sections, s)
+		}
 	}
 	facts := strings.Join(sections, "\n\n")
 	budget := r.Limit - utf8.RuneCountInString(facts) - 2

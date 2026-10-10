@@ -58,7 +58,7 @@ func parse(name string, b []byte) (any, error) {
 			}
 			if m := targetRE.FindStringSubmatch(l); m != nil {
 				for _, t := range strings.Fields(m[1]) {
-					if !seen[t] {
+					if !seen[t] && !strings.HasPrefix(t, ".") {
 						targets = append(targets, t)
 						seen[t] = true
 					}

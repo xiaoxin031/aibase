@@ -24,11 +24,13 @@ type Inspector struct {
 	Cache  *cache.Store
 	Env    func(string) string
 	Home   string
+	// Budget bounds one inspection; zero means DefaultBudget.
+	Budget time.Duration
 }
 
 func New() *Inspector {
 	h, _ := os.UserHomeDir()
-	return &Inspector{ExecRunner{}, OSFS{}, cache.NewStore(""), os.Getenv, h}
+	return &Inspector{Runner: ExecRunner{}, FS: OSFS{}, Cache: cache.NewStore(""), Env: os.Getenv, Home: h}
 }
 
 type probe struct {
@@ -96,7 +98,11 @@ func (i *Inspector) InspectLevel(ctx context.Context, level string) (Report, err
 	}
 }
 func (i *Inspector) inspect(ctx context.Context, level int, tools bool) Report {
-	ctx, cancel := context.WithTimeout(ctx, Budget)
+	budget := i.Budget
+	if budget <= 0 {
+		budget = DefaultBudget()
+	}
+	ctx, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
 	out := Report{}
 	live := func(k string, v any) { out[k] = cache.New(v, "session", 0, cache.OK) }

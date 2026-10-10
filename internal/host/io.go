@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +18,22 @@ import (
 )
 
 const Budget = 1500 * time.Millisecond
+
+// Windows process start-up (PowerShell, .cmd shims) is far slower than Unix fork/exec.
+func DefaultBudget() time.Duration {
+	if runtime.GOOS == "windows" {
+		return 5 * time.Second
+	}
+	return Budget
+}
+
+func commandTimeout() time.Duration {
+	if runtime.GOOS == "windows" {
+		return 3 * time.Second
+	}
+	return Budget
+}
+
 const MaxOutput = 64 << 10
 
 // Runner implementations must honor cancellation. Commands are argv, never shell text.
@@ -44,7 +61,7 @@ func (w *capped) Write(p []byte) (int, error) {
 	return n, nil
 }
 func (ExecRunner) Run(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, Budget)
+	ctx, cancel := context.WithTimeout(ctx, commandTimeout())
 	defer cancel()
 	c := exec.CommandContext(ctx, name, args...)
 	c.Dir = dir
