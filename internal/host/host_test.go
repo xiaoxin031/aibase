@@ -76,6 +76,7 @@ func fixture(t *testing.T) (*Inspector, *fakeRunner) {
 }
 func TestBudgetConcurrencyAndL0(t *testing.T) {
 	i, r := fixture(t)
+	i.Budget = Budget
 	r.delay = 2 * time.Second
 	start := time.Now()
 	out := i.Inspect(context.Background(), 0)
