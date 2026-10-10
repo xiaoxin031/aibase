@@ -46,6 +46,17 @@ jobs:
           values = [json.loads(line) for line in pathlib.Path(sys.argv[1]).read_text(encoding='utf-8').splitlines()]
           assert len(values) == 2 and all('result' in v and 'error' not in v for v in values), values
           PY
+      - name: show real output
+        shell: bash
+        env:
+          AIBASE_HOME: ${{ runner.temp }}/aibase-show
+        run: |
+          ext=''; [ "$RUNNER_OS" = Windows ] && ext='.exe'
+          bin="$RUNNER_TEMP/aibase-smoke$ext"
+          "$bin" refresh >/dev/null
+          "$bin" context
+          echo "-------- runtime --------"
+          "$bin" inspect host --level runtime | head -60
   tray:
     strategy:
       fail-fast: false
