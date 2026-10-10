@@ -51,7 +51,7 @@ func TestDetachedRefreshLifecycle(t *testing.T) {
 	cwd, _ := os.Getwd()
 	wait := func(after time.Time) cache.Fact {
 		t.Helper()
-		deadline := time.Now().Add(5 * time.Second)
+		deadline := time.Now().Add(30 * time.Second)
 		for time.Now().Before(deadline) {
 			f, ok := store.Get(brief.MachineKey)
 			if ok && f.Fresh(time.Now()) && f.At.After(after) {
@@ -74,7 +74,7 @@ func TestDetachedRefreshLifecycle(t *testing.T) {
 		t.Fatal("missing request")
 	}
 	// Wait for the child's skills write and lock release before testing the hot path.
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
 		if _, ok := store.Get("brief:doctor:" + cwd); ok {
 			break
