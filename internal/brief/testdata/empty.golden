@@ -1,0 +1,11 @@
+[memory] Older history and notes: aibase search <words>; aibase show <slug>.
+
+
+[live] Machine: {{OS}}/{{ARCH}}; CPU {{CPU}} cores
+
+[live] Project directory: {{CWD}}
+Manifests: 
+
+[cache missing] Skill index unavailable; aibase skill ls
+
+[live] Gaps: tool dependencies unchecked; aibase doctor; machine cache unavailable or over read budget; skill index cache missing

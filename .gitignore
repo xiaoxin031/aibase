@@ -1,0 +1,14 @@
+/dist/
+/aibase
+/aibase.exe
+/validation/
+VALIDATION.json
+*.test
+.DS_Store
+/tray/aibase-tray
+/tray/aibase-tray.exe
+/tray/tray
+/tray/tray.exe
+/tray/*.app/
+
+*.test.exe

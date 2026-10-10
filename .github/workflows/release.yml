@@ -1,0 +1,97 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test ./...
+      - name: build core
+        run: |
+          mkdir -p dist
+          for os in darwin linux windows; do
+            for arch in amd64 arm64; do
+              ext=""; [ "$os" = windows ] && ext=".exe"
+              CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \
+                -ldflags "-s -w -X github.com/xiaoxin031/aibase/internal/memory.version=${GITHUB_REF_NAME#v}" \
+                -o "dist/aibase-$os-$arch$ext" ./cmd/aibase
+            done
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: core
+          path: dist/*
+          if-no-files-found: error
+  tray-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tray/go.mod
+          cache-dependency-path: tray/go.mod
+      - run: go -C tray mod download
+      - run: go -C tray test ./...
+      - name: build macOS tray with Cocoa
+        run: |
+          mkdir -p dist
+          for arch in amd64 arm64; do
+            CGO_ENABLED=1 GOOS=darwin GOARCH=$arch go -C tray build -trimpath -ldflags '-s -w' -o "../dist/aibase-tray-darwin-$arch" .
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tray-macos
+          path: dist/*
+          if-no-files-found: error
+  tray-portable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tray/go.mod
+          cache-dependency-path: tray/go.mod
+      - run: go -C tray mod download
+      - run: CGO_ENABLED=0 go -C tray test ./...
+      - name: build Linux and Windows tray
+        run: |
+          mkdir -p dist
+          for os in linux windows; do
+            for arch in amd64 arm64; do
+              ext=""; flags='-s -w'
+              if [ "$os" = windows ]; then ext='.exe'; flags="$flags -H=windowsgui"; fi
+              CGO_ENABLED=0 GOOS=$os GOARCH=$arch go -C tray build -trimpath -ldflags "$flags" -o "../dist/aibase-tray-$os-$arch$ext" .
+            done
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tray-portable
+          path: dist/*
+          if-no-files-found: error
+  publish:
+    needs: [core, tray-macos, tray-portable]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: checksum complete asset set
+        run: |
+          cd dist
+          test "$(find . -maxdepth 1 -type f -name 'aibase-*' | wc -l)" -eq 12
+          sha256sum aibase-* > checksums.txt
+      - name: publish once
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes

@@ -1,0 +1,89 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test ./...
+      - name: smoke
+        shell: bash
+        env:
+          AIBASE_HOME: ${{ runner.temp }}/aibase-home
+        run: |
+          ext=''; [ "$RUNNER_OS" = Windows ] && ext='.exe'
+          bin="$RUNNER_TEMP/aibase-smoke$ext"
+          py=python; command -v "$py" >/dev/null 2>&1 || py=python3
+          go build -o "$bin" ./cmd/aibase
+          "$bin" version
+          "$bin" context --json > "$RUNNER_TEMP/context.json"
+          "$bin" doctor --json > "$RUNNER_TEMP/doctor.json"
+          "$bin" inspect host --level tools --json > "$RUNNER_TEMP/host.json"
+          "$py" - "$RUNNER_TEMP" <<'PY'
+          import json, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          for name in ['context', 'doctor', 'host']:
+              value = json.loads((root / (name + '.json')).read_text(encoding='utf-8'))
+              assert not (isinstance(value, dict) and 'error' in value), value
+              if name == 'doctor':
+                  assert isinstance(value, list) and value, value
+                  assert all(c['status'] in ['ok', 'warn', 'fail'] for c in value), value
+          PY
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | "$bin" mcp > "$RUNNER_TEMP/mcp.jsonl"
+          "$py" - "$RUNNER_TEMP/mcp.jsonl" <<'PY'
+          import json, pathlib, sys
+          values = [json.loads(line) for line in pathlib.Path(sys.argv[1]).read_text(encoding='utf-8').splitlines()]
+          assert len(values) == 2 and all('result' in v and 'error' not in v for v in values), values
+          PY
+  tray:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tray/go.mod
+          cache-dependency-path: tray/go.sum
+      - run: go -C tray mod download
+      - name: tray vet, tests and core JSON contract
+        shell: bash
+        run: |
+          ext=''; [ "$RUNNER_OS" = Windows ] && ext='.exe'
+          go build -o "$RUNNER_TEMP/aibase$ext" ./cmd/aibase
+          go -C tray vet ./...
+          AIBASE_TEST_CORE="$RUNNER_TEMP/aibase$ext" go -C tray test ./...
+      - name: build supported architectures
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            macOS) os=darwin; cgo=1; flags='-s -w'; ext='' ;;
+            Linux) os=linux; cgo=0; flags='-s -w'; ext='' ;;
+            Windows) os=windows; cgo=0; flags='-s -w -H=windowsgui'; ext='.exe' ;;
+          esac
+          for arch in amd64 arm64; do
+            CGO_ENABLED=$cgo GOOS=$os GOARCH=$arch go -C tray build -ldflags "$flags" -o "$RUNNER_TEMP/aibase-tray-$os-$arch$ext" .
+          done
+      - name: installer dry-run (Unix)
+        if: runner.os != 'Windows'
+        run: AIBASE_DRY_RUN=1 AIBASE_TRAY=1 sh install.sh
+      - name: installer dry-run (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:AIBASE_DRY_RUN = '1'
+          $env:AIBASE_TRAY = '1'
+          ./install.ps1
