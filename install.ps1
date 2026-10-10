@@ -67,7 +67,9 @@ try {
     Say "downloading $asset ($version)"
     try {
       Invoke-WebRequest -UseBasicParsing "$base/$asset" -OutFile $exe
-      $sums = (Invoke-WebRequest -UseBasicParsing "$base/checksums.txt").Content -split "`n"
+      $sumsFile = Join-Path $tmp 'checksums.txt'
+      Invoke-WebRequest -UseBasicParsing "$base/checksums.txt" -OutFile $sumsFile
+      $sums = Get-Content -LiteralPath $sumsFile
     } catch {
       Say 'release download unavailable; building from source'
       $source = $true
