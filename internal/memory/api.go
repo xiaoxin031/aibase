@@ -1,5 +1,7 @@
 package memory
 
+import "path/filepath"
+
 var Version = version
 
 func Snapshot() string { return snapshot(detectProject(cwd())) }
@@ -15,4 +17,14 @@ func ProjectRoot(dir string) string {
 		return p.Root
 	}
 	return ""
+}
+
+// ArchiveCounts reports how many notes and session logs are stored.
+func ArchiveCounts() (notes, logs int) {
+	n, _ := filepath.Glob(filepath.Join(notesDir(), "*.md"))
+	if f, err := openRead(historyPath()); err == nil {
+		logs, _ = countHistory(f)
+		f.Close()
+	}
+	return len(n), logs
 }

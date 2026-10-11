@@ -24,6 +24,8 @@ func run(args []string) (string, error) {
 	switch args[0] {
 	case "status":
 		return statusCommand(args[1:])
+	case "stats":
+		return statsCommand(args[1:])
 	case "config":
 		return configCommand(args[1:])
 	case "setup":
@@ -215,11 +217,14 @@ func execute(args []string, stdout, stderr io.Writer) int {
 		n += en
 		count += ec
 	}
-	if cmd == "hook" {
-		action := "SessionStart"
-		client := "unknown"
-		if len(args) > 1 && args[1] == "stop" {
-			action = "Stop"
+	if cmd == "hook" || (memoryWrite(cmd) && err == nil) {
+		action := cmd
+		client := "cli"
+		if cmd == "hook" {
+			action, client = "SessionStart", "unknown"
+			if len(args) > 1 && args[1] == "stop" {
+				action = "Stop"
+			}
 		}
 		for i, a := range args {
 			if a == "--agent" && i+1 < len(args) {

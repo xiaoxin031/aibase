@@ -175,6 +175,9 @@ func humanFacts(cmd, out string) string {
 	if cmd == "setup" {
 		return setupText(out)
 	}
+	if cmd == "stats" {
+		return statsText(out)
+	}
 	if cmd == "inspect" || cmd == "refresh" {
 		var r host.Report
 		if json.Unmarshal([]byte(out), &r) == nil {

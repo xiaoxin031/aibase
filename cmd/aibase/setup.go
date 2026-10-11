@@ -43,6 +43,7 @@ Integration
 Maintenance
   aibase version
   aibase status [cwd] --json
+  aibase stats [--json]             tokens, live sessions and memory at a glance
   aibase config [inject|autosave true|false] --json
   aibase doctor [--json]
   aibase audit [-n N]
