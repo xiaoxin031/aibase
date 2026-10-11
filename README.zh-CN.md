@@ -113,7 +113,7 @@ git clone https://github.com/xiaoxin031/aibase && cd aibase && ./install.sh
 | 客户端 | 接入方式 |
 |---|---|
 | Claude Code | `SessionStart` + `Stop` 钩子，`/save` 命令 |
-| Codex CLI | `SessionStart` + `Stop` 钩子，`save` 技能（Codex 要求在 `/hooks` 里信任一次） |
+| Codex CLI | `SessionStart` + `Stop` 钩子，`save` 技能；通过 Codex 自带的 app-server 自动完成信任（不用进 `/hooks`） |
 | Gemini CLI | `SessionStart` + `AfterAgent` 钩子 |
 | Cursor | `sessionStart` + `stop` 钩子，另给 `cursor-agent` 配 MCP |
 | opencode | 本地 MCP 服务 + 全局 `AGENTS.md`（JSONC 原地编辑，保留注释） |

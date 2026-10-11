@@ -46,8 +46,12 @@ func (c manager) install(target string) (string, error) {
 		add(msg+" (/save)", err)
 	case "codex":
 		dir := clientDir("codex")
-		msg, err := c.addHooks(filepath.Join(dir, "hooks.json"), exe, "codex", false)
-		add(msg+" — in Codex run /hooks once and trust + enable both aibase hooks", err)
+		hooks := filepath.Join(dir, "hooks.json")
+		msg, err := c.addHooks(hooks, exe, "codex", false)
+		add(msg, err)
+		if err == nil {
+			add(c.trustCodexHooks(hooks), nil)
+		}
 		skill := "---\nname: save\ndescription: Save this session to aibase memory. Use when the user says save, /save, or asks to remember something.\n---\n\n" + guideFor("codex")
 		msg, err = c.writeWithBackup(filepath.Join(dir, "skills", "save", "SKILL.md"), skill)
 		add(msg+" ($save)", err)

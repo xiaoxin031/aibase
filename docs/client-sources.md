@@ -5,7 +5,7 @@
 | 客户端 | 官方目录与接入方式 | skills 原生读取 `~/.agents/skills` |
 |---|---|---|
 | Claude Code | `~/.claude/settings.json` 的 SessionStart / Stop；保留 `/save` | 未列为读取目录；同步到 `~/.claude/skills/<name>` |
-| Codex | `~/.codex/hooks.json`；须由用户在 `/hooks` 信任并启用 | 是 |
+| Codex | `~/.codex/hooks.json`；安装时经 `codex app-server` 的 hooks/list + config/batchWrite（即 `/hooks` 的后端）写入信任并启用，失败时提示用户走 `/hooks` | 是 |
 | Gemini CLI | `~/.gemini/settings.json` 的 SessionStart / AfterAgent | 是，优先于同层 `~/.gemini/skills` |
 | Cursor 编辑器 | `~/.cursor/hooks.json`，version 1，sessionStart / stop | 是 |
 | Cursor CLI (`cursor-agent`) | `~/.cursor/mcp.json`，与编辑器共享 MCP；文档未明确保证 CLI 的 sessionStart，使用 MCP 补足 | Cursor skills 文档支持；CLI 的实际版本仍需实机确认 |

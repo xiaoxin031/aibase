@@ -92,7 +92,7 @@ Run `aibase setup` again whenever you install a new AI client. It's idempotent.
 | Client | How aibase plugs in |
 |---|---|
 | Claude Code | `SessionStart` + `Stop` hooks, `/save` command |
-| Codex CLI | `SessionStart` + `Stop` hooks, `save` skill (trust them once via `/hooks`, as Codex requires) |
+| Codex CLI | `SessionStart` + `Stop` hooks, `save` skill; trusted automatically through Codex's own app-server (no `/hooks` step) |
 | Gemini CLI | `SessionStart` + `AfterAgent` hooks |
 | Cursor | `sessionStart` + `stop` hooks, plus an MCP server for `cursor-agent` |
 | opencode | local MCP server + global `AGENTS.md` (JSONC edited in place, comments preserved) |

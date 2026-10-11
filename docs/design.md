@@ -89,7 +89,7 @@ SessionStart 注入 = 记忆快照 + 机器摘要 + 项目摘要 + 技能索引�
 
 ### 7. doctor — 知道缺什么
 `aibase doctor [--json]` 逐项 ✓ / ✗ / !，每个问题给出修复命令（只给，不执行）：
-- 各客户端是否已接入、hook 是否生效（如 Codex 需 /hooks 信任）、aibase 是否在 PATH
+- 各客户端是否已接入、hook 是否生效（如 Codex hook 是否已信任，经 codex app-server 查询）、aibase 是否在 PATH
 - 数据目录权限、缓存是否过期、记忆是否接近上限、记忆里是否有疑似密钥
 - 项目需要但本机缺失的工具（有 pom.xml 无 mvn/java 等）
 - 技能依赖缺失

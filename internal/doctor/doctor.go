@@ -55,8 +55,16 @@ func run(dir string, quick bool) []Check {
 			fix = "aibase install " + d.Name + " --dry-run"
 		}
 		if d.Name == "codex" && d.Configured {
-			status, detail = "warn", "configuration present; activation/trust unverified"
-			fix = "In Codex: /hooks — trust and enable aibase"
+			switch clients.CodexHookTrust() {
+			case "trusted":
+				detail = "hooks trusted and enabled in Codex"
+			case "untrusted":
+				status, detail = "warn", "hooks not trusted in Codex"
+				fix = "aibase install codex"
+			default:
+				status, detail = "warn", "configuration present; activation/trust unverified"
+				fix = "In Codex: /hooks — trust and enable aibase"
+			}
 		}
 		if d.Error != "" {
 			status = "fail"
