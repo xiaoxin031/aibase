@@ -156,12 +156,12 @@ final class Store: ObservableObject {
             let data = (try? Core.run(["doctor"], timeout: 60)) ?? Data()
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("aibase-doctor.txt")
             try? data.write(to: url)
-            await MainActor.run { _ = NSWorkspace.shared.open(url) }
+            reveal(url)
         }
     }
 
     func openDataDir() {
-        if let dir = stats?.dataDir { NSWorkspace.shared.open(URL(fileURLWithPath: dir)) }
+        if let dir = stats?.dataDir { reveal(URL(fileURLWithPath: dir)) }
     }
 
     // The app starts at login unless the user turned that off once.
@@ -247,4 +247,10 @@ func relative(_ d: Date) -> String {
     f.unitsStyle = .short
     f.locale = Locale(identifier: isChinese ? "zh_CN" : "en_US")
     return f.localizedString(for: d, relativeTo: Date())
+}
+
+// LaunchServices can block for a long time (privacy checks on Desktop/Documents
+// folders), so never open URLs on the main thread.
+func reveal(_ url: URL) {
+    DispatchQueue.global(qos: .userInitiated).async { NSWorkspace.shared.open(url) }
 }

@@ -219,7 +219,7 @@ struct SettingsMenu: View {
             Divider()
             Button(L("打开数据目录", "Open data folder")) { store.openDataDir() }
             Button(L("运行体检", "Run doctor")) { store.doctor() }
-            Button(L("项目主页", "Project page")) { NSWorkspace.shared.open(URL(string: "https://github.com/xiaoxin031/aibase")!) }
+            Button(L("项目主页", "Project page")) { reveal(URL(string: "https://github.com/xiaoxin031/aibase")!) }
             Divider()
             Button(L("退出菜单栏（记忆照常运行）", "Quit menu bar app (memory keeps working)")) { NSApp.terminate(nil) }
         } label: {
@@ -391,7 +391,7 @@ struct SessionsSection: View {
 
     private func row(_ g: Group) -> some View {
         Button {
-            if let d = g.dir, !d.isEmpty { NSWorkspace.shared.open(URL(fileURLWithPath: d)) }
+            if let d = g.dir, !d.isEmpty { reveal(URL(fileURLWithPath: d)) }
         } label: {
             HStack(spacing: 7) {
                 Pulse(color: Color(Palette.client(g.client)), live: (parseDate(g.updated).map { Date().timeIntervalSince($0) < 120 }) ?? false)
@@ -441,7 +441,7 @@ struct MemorySection: View {
         Block(title: L("记忆", "Memory"), trailing: L("今日保存 \(s.today["saves"] ?? 0) 次", "\(s.today["saves"] ?? 0) saves today")) {
             VStack(spacing: 1) {
                 ForEach(s.memory, id: \.target) { u in
-                    Button { if let p = u.path { NSWorkspace.shared.open(URL(fileURLWithPath: p)) } } label: { row(u) }
+                    Button { if let p = u.path { reveal(URL(fileURLWithPath: p)) } } label: { row(u) }
                         .buttonStyle(.plain)
                         .help(u.path ?? "")
                 }
