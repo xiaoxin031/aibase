@@ -144,7 +144,7 @@ App 只负责展示。记忆由各 AI 客户端里的 hook 自动读写，App �
 | Claude Code | `SessionStart` + `Stop` 钩子，`/save` 命令 |
 | Codex CLI | `SessionStart` + `Stop` 钩子，`save` 技能；通过 Codex 自带的 app-server 自动完成信任（不用进 `/hooks`） |
 | Gemini CLI | `SessionStart` + `AfterAgent` 钩子 |
-| Cursor | `sessionStart` + `stop` 钩子，另给 `cursor-agent` 配 MCP |
+| Cursor | `sessionStart` + `stop` 钩子，另给 `cursor-agent` 配 MCP（无界面的 `cursor-agent -p` 不会触发 `stop`，此时靠 MCP 保存记忆） |
 | opencode | 本地 MCP 服务 + 全局 `AGENTS.md`（JSONC 原地编辑，保留注释） |
 | 其他任意客户端 | `aibase mcp`（stdio MCP），或把 `aibase install --print-agents-md` 的输出贴进 AGENTS.md |
 

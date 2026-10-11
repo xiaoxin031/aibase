@@ -114,7 +114,7 @@ The same numbers are available everywhere with `aibase stats` (or `--json`).
 | Claude Code | `SessionStart` + `Stop` hooks, `/save` command |
 | Codex CLI | `SessionStart` + `Stop` hooks, `save` skill; trusted automatically through Codex's own app-server (no `/hooks` step) |
 | Gemini CLI | `SessionStart` + `AfterAgent` hooks |
-| Cursor | `sessionStart` + `stop` hooks, plus an MCP server for `cursor-agent` |
+| Cursor | `sessionStart` + `stop` hooks, plus an MCP server for `cursor-agent` (headless `cursor-agent -p` never sends `stop`; there memory is saved through MCP) |
 | opencode | local MCP server + global `AGENTS.md` (JSONC edited in place, comments preserved) |
 | Anything else | `aibase mcp` (stdio MCP), or paste `aibase install --print-agents-md` into AGENTS.md |
 
