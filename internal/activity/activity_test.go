@@ -1,6 +1,7 @@
 package activity
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -37,7 +38,8 @@ func TestCollect(t *testing.T) {
 	count := func(in, cached, out int) string {
 		return `{"timestamp":"` + ts + `","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":` + strconv.Itoa(in) + `,"cached_input_tokens":` + strconv.Itoa(cached) + `,"output_tokens":` + strconv.Itoa(out) + `}}}}` + "\n"
 	}
-	write(t, codex, `{"type":"session_meta","payload":{"cwd":"`+home+`"}}`+"\n"+count(100, 60, 10)+count(100, 60, 10)+count(300, 200, 30)+`{"partial`, false)
+	cwd, _ := json.Marshal(home)
+	write(t, codex, `{"type":"session_meta","payload":{"cwd":`+string(cwd)+`}}`+"\n"+count(100, 60, 10)+count(100, 60, 10)+count(300, 200, 30)+`{"partial`, false)
 	idx := filepath.Join(home, "idx.json")
 
 	r := Collect(home, idx, now)
