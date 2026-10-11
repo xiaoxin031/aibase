@@ -29,26 +29,19 @@ jobs:
           name: core
           path: dist/*
           if-no-files-found: error
-  tray-macos:
+  macos-app:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: tray/go.mod
-          cache-dependency-path: tray/go.mod
-      - run: go -C tray mod download
-      - run: go -C tray test ./...
-      - name: build macOS tray with Cocoa
+      - name: build universal Aibase.app
         run: |
-          mkdir -p dist
-          for arch in amd64 arm64; do
-            CGO_ENABLED=1 GOOS=darwin GOARCH=$arch go -C tray build -trimpath -ldflags '-s -w' -o "../dist/aibase-tray-darwin-$arch" .
-          done
+          AIBASE_VERSION=${GITHUB_REF_NAME#v} macos/build.sh dist
+          ditto -c -k --keepParent dist/Aibase.app dist/Aibase-macos.zip
+          rm -rf dist/Aibase.app
       - uses: actions/upload-artifact@v4
         with:
-          name: tray-macos
-          path: dist/*
+          name: macos-app
+          path: dist/Aibase-macos.zip
           if-no-files-found: error
   tray-portable:
     runs-on: ubuntu-latest
@@ -76,7 +69,7 @@ jobs:
           path: dist/*
           if-no-files-found: error
   publish:
-    needs: [core, tray-macos, tray-portable]
+    needs: [core, macos-app, tray-portable]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -88,8 +81,9 @@ jobs:
       - name: checksum complete asset set
         run: |
           cd dist
-          test "$(find . -maxdepth 1 -type f -name 'aibase-*' | wc -l)" -eq 12
-          sha256sum aibase-* > checksums.txt
+          test "$(find . -maxdepth 1 -type f -name 'aibase-*' | wc -l)" -eq 10
+          test -s Aibase-macos.zip
+          sha256sum aibase-* Aibase-macos.zip > checksums.txt
       - name: publish once
         env:
           GH_TOKEN: ${{ github.token }}

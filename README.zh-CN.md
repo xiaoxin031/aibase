@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/images/icon.png" width="96" alt="aibase 图标">
+
 # aibase
 
 **给所有 AI 编程助手用的本机上下文底座。**
@@ -81,6 +83,8 @@ git clone https://github.com/xiaoxin031/aibase && cd aibase && ./install.sh
 | "那个仓库放哪了？" | `aibase projects billing`，约 0.1 秒全盘找到 |
 | 密钥混进提示词 | 所有输出先脱敏，凭据库一律不读 |
 | 好用的流程，会话一结束就丢了 | 按 Agent Skills（`SKILL.md`）标准发现、校验技能，各客户端共用 |
+| 不说"保存"，AI 就不记 | 干完活、或你说出偏好和决定时，会自动提醒 AI 存下来 |
+| 今天烧了多少 Token 心里没数 | Mac 菜单栏一眼看到今日 Token、活跃会话和记忆 |
 
 ## 它知道什么
 
@@ -96,7 +100,11 @@ git clone https://github.com/xiaoxin031/aibase && cd aibase && ./install.sh
   - 项目里声明的命令**只展示，绝不执行**
 - **记忆**：
   - 有大小上限的三层：用户画像、全局事实、项目事实，另有可搜索的笔记和会话日志
-  - 会话结束时提醒 AI 把值得留的存下来，所以记忆会自己长，但不会无限膨胀
+  - 主动保存，不用你说 `/save`。下面三种情况，AI 会被要求把值得留的存下来，并刷新本次会话摘要：
+    - 这一轮改了文件
+    - 连续调用了好几次工具
+    - 你说了"以后……""记住……""一律……""决定……"这类话
+  - 保存在当前会话里完成，能复用提示词缓存；记忆会自己长，但不会无限膨胀
 - **技能**：
   - 采用开放的 [Agent Skills](https://agentskills.io) 标准，统一放在 `~/.agents/skills`
   - 逐个检查技能依赖的工具本机有没有；不原生读这个目录的客户端，会帮它同步过去
@@ -107,6 +115,27 @@ git clone https://github.com/xiaoxin031/aibase && cd aibase && ./install.sh
   - 某个技能缺工具
   - 记忆快满了
   - 笔记里藏着密钥
+
+## 菜单栏 App（macOS）
+
+<p align="center"><img src="docs/images/menubar-zh.png" width="348" alt="aibase 菜单栏 App"></p>
+
+一个原生 SwiftUI 小程序：约 2.5MB，Intel 和 Apple 芯片通用，macOS 13 及以上。在 Mac 上安装时自动装好，并设成登录时启动。点菜单栏里那个"星火落在底座上"的图标，就能看到：
+
+- **今日 Token**：
+  - 覆盖 Claude Code、Codex、Gemini
+  - 分输入、输出、缓存命中率，附近 7 天趋势
+  - 直接读这些客户端本来就写在本地的会话记录，不上传任何东西
+- **活跃会话**：最近 15 分钟有动静的 AI 对话，按客户端和项目列出。数量也显示在图标旁边。
+- **记忆**：
+  - 各层记忆的用量，点一下直接打开文件
+  - 笔记数、会话日志数、今日写入、自动复盘次数
+- **最近会话摘要**，以及记忆、笔记、历史的**即时搜索**。
+- **开关和菜单**：
+  - 开关：暂停注入、暂停自动保存
+  - 菜单：登录时启动、打开数据目录、运行体检
+
+同样的数据在任何系统上都能用 `aibase stats` 看（加 `--json` 给程序用）。
 
 ## 支持的客户端
 
@@ -128,7 +157,7 @@ git clone https://github.com/xiaoxin031/aibase && cd aibase && ./install.sh
 | 体积 | 约 4MB，静态编译，`CGO_ENABLED=0`，只用 Go 标准库 |
 | 会话简报（热缓存） | P95：macOS 约 9ms，Alpine/Debian 容器约 7ms |
 | 完整机器探测 | 总预算 1.5 秒，慢的探测项返回 `timeout`，不会卡住 |
-| 后台进程 | 没有。CLI 用完就退，MCP 跟着客户端会话走 |
+| 后台进程 | 没有。CLI 用完就退，MCP 跟着客户端会话走；可选的菜单栏 App 每 30 秒调一次 `aibase stats`（约 25ms） |
 | 网络 | 不联网，不收集任何使用数据 |
 | 平台 | macOS、Linux（含 Alpine/musl、容器、WSL）、Windows，amd64 和 arm64 都支持 |
 
@@ -156,30 +185,28 @@ git clone https://github.com/xiaoxin031/aibase && cd aibase && ./install.sh
 记忆       ls · add · rm · save · log · note · show · search · import · migrate amem
 技能       skill ls | show | new [--draft] | check | sync | promote
 接入       install [客户端] [--dry-run] · uninstall [客户端] · mcp · hook
-维护       audit · redact scan [路径]
+维护       stats · audit · redact scan [路径]
 ```
 
 所有命令都支持 `--json`。
 
 **MCP 工具：**`context`、`host_inspect`、`project_inspect`、`projects_find`、`skills_list`、`skill_show`、`doctor`、`memory_load`、`memory_save`、`memory_log`、`memory_search`、`memory_show`、`memory_note`。
 
-## 可选托盘
+## Linux 和 Windows 托盘
 
-`aibase-tray` 是放在菜单栏或系统托盘里的小图标。
+Mac 上默认装上面的菜单栏 App，用 `AIBASE_TRAY=0` 可以跳过。Linux 和 Windows 上的 `aibase-tray` 是可选的系统托盘图标：
 - 能看到：各客户端接入状态、记忆用量、最近会话、doctor 结果
-- 能操作：暂停注入、开关自动保存
-
-它是单独的程序，只调用 `aibase … --json`，服务器上用不着。
+- 需要装时才装：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/xiaoxin031/aibase/main/install.sh | AIBASE_TRAY=1 sh   # macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/xiaoxin031/aibase/main/install.sh | AIBASE_TRAY=1 sh   # Linux
 $env:AIBASE_TRAY='1'; irm https://raw.githubusercontent.com/xiaoxin031/aibase/main/install.ps1 | iex   # Windows
 ```
 
-怎么启动：
-- Linux：运行 `aibase-tray`，需要桌面有 StatusNotifier/AppIndicator 托盘
-- Windows：运行 `aibase-tray.exe`
-- macOS：运行 `open ~/.local/bin/Aibase.app`，目前还没做苹果公证
+注意：
+- Linux 桌面需要 StatusNotifier/AppIndicator 托盘
+- 服务器上两个都用不着
+- macOS App 是本地签名，还没做苹果公证
 
 ## 安装选项
 
@@ -187,7 +214,7 @@ $env:AIBASE_TRAY='1'; irm https://raw.githubusercontent.com/xiaoxin031/aibase/ma
 |---|---|
 | `AIBASE_VERSION=v0.1.0` | 安装指定版本（默认最新） |
 | `AIBASE_BIN_DIR=/path` | 安装位置（默认 `~/.local/bin`；root 是 `/usr/local/bin`；Windows 是 `%LOCALAPPDATA%\Programs\aibase`） |
-| `AIBASE_TRAY=1` | 顺带装托盘 |
+| `AIBASE_TRAY=0` / `=1` | macOS：不装菜单栏 App（默认会装）；Linux/Windows：装托盘 |
 | `AIBASE_FROM_SOURCE=1` | 用本机 Go 编译，不下载 |
 | `AIBASE_NO_SETUP=1` | 只装二进制，不接入客户端 |
 | `AIBASE_DRY_RUN=1` | 只打印计划，不做任何改动 |

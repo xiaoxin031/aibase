@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/images/icon.png" width="96" alt="aibase icon">
+
 # aibase
 
 **The local context layer for every AI coding agent.**
@@ -78,14 +80,30 @@ Run `aibase setup` again whenever you install a new AI client. It's idempotent.
 | "Where is that repo again?" | `aibase projects billing`, which searches your whole disk in ~0.1 s |
 | Secrets leak into prompts | Redaction runs on every output; credential stores are never read |
 | Reusable workflows are lost after the session | Agent Skills (`SKILL.md`) are discovered, checked and shared across clients |
+| The AI forgets to write things down unless you say "save" | It's asked to save after real work, or when you state a preference or decision |
+| No idea how many tokens you burned today | The macOS menu bar shows today's tokens, live sessions and memory at a glance |
 
 ## What it knows
 
 - **Machine**: OS and version, architecture, CPU, RAM, disk, GPU, shell, SSH/container/WSL/VM, root/admin, package managers, language runtimes, docker/kubectl, media tools (ffmpeg, ImageMagick, yt-dlp…) and installed AI CLIs. On request it also reads listening ports with their process, running services, containers and the top CPU users.
 - **Project**: git root, branch, upstream, dirty count, recent commits, manifests (go.mod, package.json scripts, Makefile targets, pom.xml, Cargo.toml, pyproject, Dockerfile, compose), language mix, and whether AGENTS.md or CLAUDE.md exists. Declared commands are **shown, never executed**.
-- **Memory**: a size-capped profile, global facts and per-project facts, plus searchable notes and session logs. At the end of a session it asks the agent to save what's worth keeping, so the memory grows on its own and stays bounded.
+- **Memory**: a size-capped profile, global facts and per-project facts, plus searchable notes and session logs. Saving is proactive: when a turn edits files, runs several tools, or you say something like "from now on…", "remember…", "always…", the agent is asked to save what's worth keeping and refresh the session summary, with no `/save` needed. It happens inside the live session, so the prompt cache is reused, and the memory grows on its own while staying bounded.
 - **Skills**: the open [Agent Skills](https://agentskills.io) standard in `~/.agents/skills`. aibase checks each skill's dependencies against your machine, and syncs skills to clients that don't read that directory natively. Agents can draft new skills; drafts stay inactive until you `promote` them.
 - **Gaps**: `aibase doctor` tells you what's missing, such as an unwired client, a project that needs `mvn` when Maven isn't installed, a skill whose tool is absent, memory near its cap, or a secret sitting in your notes. Each item comes with the exact fix command.
+
+## Menu bar app (macOS)
+
+<p align="center"><img src="docs/images/menubar-en.png" width="348" alt="aibase menu bar app"></p>
+
+A small native SwiftUI app (≈2.5 MB, universal, macOS 13+) that the installer adds automatically on a Mac and starts at login. Click the spark-on-layers icon in the menu bar to see:
+
+- **Tokens today** across Claude Code, Codex and Gemini, with input/output/cache-hit breakdown and a 7-day trend, read locally from the transcripts those clients already write. Nothing is sent anywhere.
+- **Active sessions**: every AI conversation that moved in the last 15 minutes, per client and project. The count also shows next to the icon.
+- **Memory**: how full each store is (click to open it), notes, session logs, today's saves and auto-reviews.
+- **Recent session notes**, and instant **search** across memory, notes and history.
+- Switches to pause injection or auto-save, launch at login, open the data folder and run `doctor`.
+
+The same numbers are available everywhere with `aibase stats` (or `--json`).
 
 ## Works with
 
@@ -107,7 +125,7 @@ It's model-agnostic. Claude, GPT, DeepSeek, Grok, Gemini, Qwen or a local model 
 | Binary | ~4 MB, static, `CGO_ENABLED=0`, Go standard library only |
 | Session brief (warm) | P95 ≈ 9 ms on macOS, ≈ 7 ms in Alpine/Debian containers |
 | Full machine probe | 1.5 s total budget. Slow probes return `timeout` instead of hanging |
-| Background processes | none. The CLI exits when done, and MCP lives only as long as the client session |
+| Background processes | none. The CLI exits when done and MCP lives only as long as the client session; the optional menu bar app polls `aibase stats` (≈25 ms) every 30 s |
 | Network | none, and no telemetry |
 | Platforms | macOS, Linux (incl. Alpine/musl, containers, WSL), Windows, on amd64 and arm64 |
 
@@ -132,23 +150,23 @@ Context           context · inspect host [--level basic|tools|runtime] · inspe
 Memory            ls · add · rm · save · log · note · show · search · import · migrate amem
 Skills            skill ls | show | new [--draft] | check | sync | promote
 Integration       install [client] [--dry-run] · uninstall [client] · mcp · hook
-Maintenance       audit · redact scan [path]
+Maintenance       stats · audit · redact scan [path]
 ```
 
 Every command accepts `--json`.
 
 **MCP tools:** `context`, `host_inspect`, `project_inspect`, `projects_find`, `skills_list`, `skill_show`, `doctor`, `memory_load`, `memory_save`, `memory_log`, `memory_search`, `memory_show`, `memory_note`.
 
-## Optional tray app
+## Tray on Linux and Windows
 
-`aibase-tray` is a menu-bar / system-tray icon showing wired clients, memory usage, recent sessions and doctor results, with switches to pause injection and toggle auto-save. It's a separate binary that only calls `aibase … --json`, so servers never need it.
+On a Mac the menu bar app above is installed by default (`AIBASE_TRAY=0` skips it). On Linux and Windows, `aibase-tray` is an opt-in system-tray icon showing wired clients, memory usage, recent sessions and doctor results:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/xiaoxin031/aibase/main/install.sh | AIBASE_TRAY=1 sh   # macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/xiaoxin031/aibase/main/install.sh | AIBASE_TRAY=1 sh   # Linux
 $env:AIBASE_TRAY='1'; irm https://raw.githubusercontent.com/xiaoxin031/aibase/main/install.ps1 | iex   # Windows
 ```
 
-Launch `aibase-tray` (Linux), `aibase-tray.exe` (Windows) or `open ~/.local/bin/Aibase.app` (macOS). Linux needs a StatusNotifier/AppIndicator tray host. The macOS build is not notarized yet.
+Linux needs a StatusNotifier/AppIndicator tray host. Servers never need either app. The macOS app is ad-hoc signed, not notarized.
 
 ## Installer options
 
@@ -156,7 +174,7 @@ Launch `aibase-tray` (Linux), `aibase-tray.exe` (Windows) or `open ~/.local/bin/
 |---|---|
 | `AIBASE_VERSION=v0.1.0` | install a specific release (default: latest) |
 | `AIBASE_BIN_DIR=/path` | install location (default `~/.local/bin`, `/usr/local/bin` for root, `%LOCALAPPDATA%\Programs\aibase` on Windows) |
-| `AIBASE_TRAY=1` | also install the tray app |
+| `AIBASE_TRAY=0` / `=1` | macOS: skip the menu bar app (installed by default). Linux/Windows: install the tray app |
 | `AIBASE_FROM_SOURCE=1` | build with your local Go instead of downloading |
 | `AIBASE_NO_SETUP=1` | install the binary only, don't wire clients |
 | `AIBASE_DRY_RUN=1` | print the plan and change nothing |

@@ -2,7 +2,8 @@
 # aibase installer for macOS and Linux.
 #   curl -fsSL https://raw.githubusercontent.com/xiaoxin031/aibase/main/install.sh | sh
 # Env: AIBASE_VERSION, AIBASE_BIN_DIR, AIBASE_NO_SETUP=1, AIBASE_FROM_SOURCE=1,
-#      AIBASE_TRAY=1 (desktop only), AIBASE_DRY_RUN=1 (no writes/downloads/setup)
+#      AIBASE_TRAY=0|1 (macOS menu bar app: on by default; Linux tray: opt-in),
+#      AIBASE_DRY_RUN=1 (no writes/downloads/setup)
 set -eu
 
 REPO="xiaoxin031/aibase"
@@ -28,9 +29,16 @@ elif [ "$(id -u)" = 0 ]; then
 else
   bin_dir=$HOME/.local/bin
 fi
+# The macOS menu bar app installs by default for desktop users, not root or SSH.
+tray=${AIBASE_TRAY:-}
+if [ -z "$tray" ] && [ "$os" = darwin ] && [ "$(id -u)" != 0 ] && [ -z "${SSH_CONNECTION:-}" ]; then
+  tray=1
+fi
+app_dir="$HOME/Applications"
 if [ "${AIBASE_DRY_RUN:-}" = 1 ]; then
   say "dry-run: install aibase-$os-$arch to $bin_dir; source=${AIBASE_FROM_SOURCE:-auto}"
-  [ "${AIBASE_TRAY:-}" != 1 ] || say "dry-run: also install aibase-tray-$os-$arch (macOS app bundle on Darwin)"
+  if [ "$tray" = 1 ] && [ "$os" = darwin ]; then say "dry-run: also install the menu bar app to $app_dir/Aibase.app"
+  elif [ "$tray" = 1 ]; then say "dry-run: also install aibase-tray-$os-$arch"; fi
   exit 0
 fi
 mkdir -p "$bin_dir"
@@ -70,10 +78,15 @@ build_from_source() {
   say "building from source"
   ver=$(git -C "$src" describe --tags --always --dirty 2>/dev/null | sed 's/^v//') || ver=""
   (cd "$src" && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/xiaoxin031/aibase/internal/memory.version=${ver:-dev}" -o "$tmp/aibase" ./cmd/aibase)
-  if [ "${AIBASE_TRAY:-}" = 1 ]; then
-    tray_cgo=0
-    [ "$os" != darwin ] || tray_cgo=1
-    (cd "$src/tray" && go mod download && CGO_ENABLED=$tray_cgo go build -trimpath -ldflags "-s -w" -o "$tmp/aibase-tray" .)
+  if [ "$tray" = 1 ] && [ "$os" = darwin ]; then
+    if command -v swiftc >/dev/null 2>&1; then
+      AIBASE_VERSION=${ver:-dev} "$src/macos/build.sh" "$tmp/app" >/dev/null || { say "menu bar app build failed; skipped"; tray=0; }
+    else
+      say "menu bar app skipped: install Xcode Command Line Tools (xcode-select --install) to build it"
+      tray=0
+    fi
+  elif [ "$tray" = 1 ]; then
+    (cd "$src/tray" && go mod download && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$tmp/aibase-tray" .)
   fi
 }
 
@@ -94,7 +107,15 @@ else
   say "downloading $asset ($version)"
   if fetch "$base/$asset" "$tmp/aibase" && fetch "$base/checksums.txt" "$tmp/checksums.txt"; then
     verify "$asset" "$tmp/aibase"
-    if [ "${AIBASE_TRAY:-}" = 1 ]; then
+    if [ "$tray" = 1 ] && [ "$os" = darwin ]; then
+      if fetch "$base/Aibase-macos.zip" "$tmp/Aibase-macos.zip"; then
+        verify Aibase-macos.zip "$tmp/Aibase-macos.zip"
+        ditto -x -k "$tmp/Aibase-macos.zip" "$tmp/app"
+      else
+        say "menu bar app not in this release; skipped"
+        tray=0
+      fi
+    elif [ "$tray" = 1 ]; then
       tray_asset="aibase-tray-$os-$arch"
       fetch "$base/$tray_asset" "$tmp/aibase-tray" || die "cannot download $tray_asset; use AIBASE_FROM_SOURCE=1 with a local checkout"
       verify "$tray_asset" "$tmp/aibase-tray"
@@ -108,31 +129,10 @@ chmod 0755 "$tmp/aibase"
 mv -f "$tmp/aibase" "$bin_dir/aibase"
 say "installed $bin_dir/aibase ($("$bin_dir/aibase" version))"
 
-if [ "${AIBASE_TRAY:-}" = 1 ]; then
+if [ "$tray" = 1 ] && [ "$os" != darwin ]; then
   chmod 0755 "$tmp/aibase-tray"
   mv -f "$tmp/aibase-tray" "$bin_dir/aibase-tray"
-  if [ "$os" = darwin ]; then
-    app="$bin_dir/Aibase.app/Contents"
-    mkdir -p "$app/MacOS"
-    # Both executables stay adjacent even when Finder starts with a minimal PATH.
-    ln -sf ../../../aibase "$app/MacOS/aibase"
-    ln -sf ../../../aibase-tray "$app/MacOS/aibase-tray"
-    cat >"$app/Info.plist" <<'PLIST'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-<key>CFBundleIdentifier</key><string>com.github.xiaoxin031.aibase</string>
-<key>CFBundleName</key><string>Aibase</string>
-<key>CFBundleExecutable</key><string>aibase-tray</string>
-<key>CFBundlePackageType</key><string>APPL</string>
-<key>NSHighResolutionCapable</key><true/>
-<key>LSUIElement</key><true/>
-</dict></plist>
-PLIST
-    say "desktop tray installed; launch with: open \"$bin_dir/Aibase.app\""
-  else
-    say "desktop tray installed; launch aibase-tray in a StatusNotifier desktop session"
-  fi
+  say "desktop tray installed; launch aibase-tray in a StatusNotifier desktop session"
 fi
 
 case ":$PATH:" in
@@ -152,5 +152,19 @@ esac
 
 if [ "${AIBASE_NO_SETUP:-}" != 1 ]; then
   "$bin_dir/aibase" setup
+fi
+
+if [ "$tray" = 1 ] && [ "$os" = darwin ]; then
+  # Replace the old Go tray bundle; the Swift app supersedes it on macOS.
+  if [ -e "$bin_dir/Aibase.app/Contents/MacOS/aibase-tray" ]; then
+    rm -rf "$bin_dir/Aibase.app" "$bin_dir/aibase-tray"
+  fi
+  pkill -x Aibase 2>/dev/null || true
+  mkdir -p "$app_dir"
+  rm -rf "$app_dir/Aibase.app"
+  mv "$tmp/app/Aibase.app" "$app_dir/Aibase.app"
+  defaults write io.github.xiaoxin031.aibase coreBinary "$bin_dir/aibase" 2>/dev/null || true
+  open "$app_dir/Aibase.app" 2>/dev/null || true
+  say "menu bar app installed: $app_dir/Aibase.app (starts at login; AIBASE_TRAY=0 skips it)"
 fi
 say "done. Open a new AI session (Claude Code, Codex, Gemini, Cursor, opencode) and it already knows this machine."

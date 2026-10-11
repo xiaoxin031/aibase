@@ -57,6 +57,25 @@ jobs:
           "$bin" context
           echo "-------- runtime --------"
           "$bin" inspect host --level runtime | head -60
+  macos-app:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: build the universal menu bar app and check it reads the core
+        env:
+          AIBASE_HOME: ${{ runner.temp }}/aibase-home
+        run: |
+          go build -o "$RUNNER_TEMP/aibase" ./cmd/aibase
+          macos/build.sh "$RUNNER_TEMP/app"
+          app="$RUNNER_TEMP/app/Aibase.app"
+          archs=$(lipo -archs "$app/Contents/MacOS/Aibase")
+          case "$archs" in *x86_64*arm64*|*arm64*x86_64*) ;; *) echo "not universal: $archs"; exit 1 ;; esac
+          codesign --verify "$app"
+          test -s "$app/Contents/Resources/AppIcon.icns"
+          AIBASE_BIN="$RUNNER_TEMP/aibase" "$app/Contents/MacOS/Aibase" --check
   tray:
     strategy:
       fail-fast: false

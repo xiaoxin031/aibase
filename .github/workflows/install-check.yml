@@ -22,6 +22,12 @@ jobs:
           aibase refresh >/dev/null
           aibase context
           aibase doctor
+      - name: menu bar app (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          app="$HOME/Applications/Aibase.app"
+          codesign --verify "$app"
+          "$app/Contents/MacOS/Aibase" --check
   windows:
     runs-on: windows-latest
     steps:
@@ -50,6 +56,7 @@ jobs:
           cd aibase && ./install.sh
           "$HOME/.local/bin/aibase" version
           "$HOME/.local/bin/aibase" context
+          if [ "$RUNNER_OS" = macOS ]; then "$HOME/Applications/Aibase.app/Contents/MacOS/Aibase" --check; fi
   clone-no-go:
     runs-on: ubuntu-latest
     container: debian:stable-slim

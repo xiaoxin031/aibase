@@ -40,7 +40,9 @@ aibase/
   internal/mcp/        MCP stdio 服务
   internal/audit/      审计日志
   internal/cache/      带 TTL 的事实缓存
-  tray/                独立 go module，aibase-tray 托盘（可选），只调用 `aibase ... --json`
+  internal/activity/   从客户端本地会话记录增量统计 Token 与活跃会话（`aibase stats`）
+  macos/               原生 SwiftUI 菜单栏 App（macOS 默认安装），只调用 `aibase ... --json`
+  tray/                独立 go module，aibase-tray 托盘（Linux/Windows 可选），只调用 `aibase ... --json`
 ```
 
 数据目录 `$AIBASE_HOME`，默认 `~/.aibase`（Windows `%USERPROFILE%\.aibase`），目录 0700、文件 0600。**代码仓库永不包含用户数据。**
@@ -107,7 +109,37 @@ SessionStart 注入 = 记忆快照 + 机器摘要 + 项目摘要 + 技能索引�
 ### 10. audit
 `~/.aibase/audit.jsonl`：时间、客户端、动作、输出字节、脱敏数；5MB 轮转。`aibase audit [-n N]` 查看注入过什么。
 
-### 11. 托盘（aibase-tray，一期包含）
+### 11. 自动保存触发
+Stop hook 在每轮结束时判断要不要让 AI 复盘保存（在当前会话里完成，复用提示词缓存）。满足以下任一条件就触发：
+- 本轮改了文件
+- 距上次复盘累计调用工具 ≥4 次（Codex 通过 shell 改文件，认不出具体改动，用持续的工具调用代替）
+- 用户消息里有偏好或决定类的说法：以后、记住、一律、决定、always、remember 等
+- 每 N 轮（`review_every`，默认 8）
+
+用户消息只从客户端会话记录里的 user 角色取，跳过注入的上下文和工具结果。
+
+### 12. stats 与菜单栏 App
+`aibase stats [--json]` 汇总以下内容，不跑 doctor 的慢探测，增量刷新约 25ms：
+- 今日及近 7 天 Token，按客户端分输入、输出、缓存读、缓存写
+- 近 15 分钟活跃的会话
+- 记忆用量、笔记数、日志数
+- 今日由 hook 发起的会话、自动复盘、记忆写入
+
+各客户端 Token 来源：
+- Claude：`~/.claude/projects/**/*.jsonl` 的 `message.usage`。按 message id 去重，同一响应会按 content block 重复写，压缩或恢复时还会再抄一遍。
+- Codex：`sessions/**/rollout-*.jsonl` 中 `token_count` 的累计值取差。
+- Gemini：`tmp/*/chats/*.json` 整文件重解析。
+
+增量索引在 `~/.aibase/state/activity-index.json`，按文件记录读到的偏移。
+
+macOS 菜单栏 App 在 `macos/`，原生 SwiftUI `MenuBarExtra`：
+- 用系统 swiftc 构建为通用二进制（`macos/build.sh`），本地签名
+- 默认装到 `~/Applications/Aibase.app`，登录时启动
+- 内容：今日 Token、近 7 天趋势、活跃会话、记忆用量、最近摘要、搜索、注入和自动保存开关
+- 图标为矢量绘制：两层底座加一颗星火
+- `--check` 校验与核心 JSON 的契约，`--snapshot` 离屏渲染文档截图
+
+### 13. 托盘（aibase-tray，Linux/Windows）
 - 独立 go module（`tray/`，依赖 fyne.io/systray），核心不受影响。
 - 显示：各客户端接入状态、记忆用量、最近 5 次会话、最近一次注入时间、doctor 摘要。
 - 开关：暂停注入、自动保存开/关；打开数据目录；运行 doctor。
