@@ -101,6 +101,7 @@ struct Dashboard: View {
 }
 
 enum Fonts {
+    static let hero = Font.system(size: 30, weight: .semibold, design: .rounded)
     static let title = Font.system(size: 14, weight: .semibold)
     static let body = Font.system(size: 12)
     static let label = Font.system(size: 12, weight: .medium)
@@ -160,27 +161,28 @@ struct Header: View {
     @EnvironmentObject var store: Store
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Image(nsImage: Mark.appIcon(size: 64)).resizable().frame(width: 22, height: 22)
-                Text("aibase").font(Fonts.title)
-                if let v = store.stats?.version { Text(v).font(Fonts.caption).foregroundStyle(.tertiary) }
-                Spacer()
-                Button { store.refresh() } label: {
-                    Image(systemName: "arrow.clockwise").rotationEffect(.degrees(store.loading ? 360 : 0))
-                        .animation(store.loading ? .linear(duration: 0.8).repeatForever(autoreverses: false) : .default, value: store.loading)
+        HStack(spacing: 10) {
+            Image(nsImage: Mark.appIcon(size: 64)).resizable().frame(width: 30, height: 30).padding(-2)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Text("aibase").font(Fonts.title)
+                    if let v = store.stats?.version { Text(v).font(Fonts.caption).foregroundStyle(.tertiary) }
                 }
-                .buttonStyle(IconButton()).keyboardShortcut("r").help(L("刷新 (⌘R)", "Refresh (⌘R)"))
-                SettingsMenu()
-            }
-            if let s = store.stats {
-                let (ok, text) = status(s)
-                HStack(spacing: 6) {
-                    Circle().fill(ok ? Color.green : Color.orange).frame(width: 6, height: 6)
-                    Text(text).lineLimit(1)
+                if let s = store.stats {
+                    let (ok, text) = status(s)
+                    HStack(spacing: 5) {
+                        Circle().fill(ok ? Color.green : Color.orange).frame(width: 6, height: 6)
+                        Text(text).lineLimit(1)
+                    }
+                    .font(Fonts.caption).foregroundStyle(.secondary)
                 }
-                .font(Fonts.caption).foregroundStyle(.secondary)
             }
+            Spacer()
+            Button { store.refresh() } label: {
+                if store.loading { ProgressView().controlSize(.mini) } else { Image(systemName: "arrow.clockwise") }
+            }
+            .buttonStyle(IconButton()).keyboardShortcut("r").help(L("刷新 (⌘R)", "Refresh (⌘R)"))
+            SettingsMenu()
         }
     }
 
@@ -240,17 +242,15 @@ struct TokensSection: View {
     var body: some View {
         Block(title: L("今日 Token", "Tokens today"), trailing: trailing) {
             HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(compact(a.todayTotal))
-                        .font(.system(size: 28, weight: .semibold))
-                        .monospacedDigit()
-                        .numeric()
-                        .animation(.easeOut(duration: 0.3), value: a.todayTotal)
-                    Text(detail).font(Fonts.caption).foregroundStyle(.secondary)
-                }
+                Text(compact(a.todayTotal))
+                    .font(Fonts.hero)
+                    .monospacedDigit()
+                    .numeric()
+                    .animation(.easeOut(duration: 0.3), value: a.todayTotal)
                 Spacer()
                 WeekBars(days: a.days, hover: $hover)
             }
+            metrics
             if a.todayTotal > 0 {
                 GeometryReader { g in
                     HStack(spacing: 2) {
@@ -283,19 +283,31 @@ struct TokensSection: View {
             let d = a.days[i]
             return "\(i == a.days.count - 1 ? L("今天", "Today") : String(d.date.dropFirst(5))) · \(compact(d.total))"
         }
-        let used = a.days.filter { $0.total > 0 }
-        guard !used.isEmpty else { return L("近 7 天", "Last 7 days") }
-        return L("7 天日均 ", "7-day avg ") + compact(used.map(\.total).reduce(0, +) / Int64(used.count))
+        return L("近 7 天 ", "7 days ") + compact(a.days.map(\.total).reduce(0, +))
     }
 
-    private var detail: String {
+    private var metrics: some View {
         var t = Tokens()
         for (_, v) in a.today {
             t.input += v.input; t.output += v.output; t.cacheRead += v.cacheRead; t.cacheWrite += v.cacheWrite
         }
-        let prompt = t.input + t.cacheRead + t.cacheWrite
-        let hit = percent(t.cacheRead, prompt)
-        return L("输入 \(compact(t.input)) · 输出 \(compact(t.output)) · 缓存命中 \(hit)", "In \(compact(t.input)) · Out \(compact(t.output)) · Cache hit \(hit)")
+        return HStack(spacing: 16) {
+            Metric(label: L("输入", "In"), value: compact(t.input))
+            Metric(label: L("输出", "Out"), value: compact(t.output))
+            Metric(label: L("缓存命中", "Cache hit"), value: percent(t.cacheRead, t.input + t.cacheRead + t.cacheWrite))
+        }
+    }
+}
+
+struct Metric: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(label).font(Fonts.caption).foregroundStyle(.secondary)
+            Text(value).font(Fonts.label).monospacedDigit()
+        }
     }
 }
 
@@ -394,12 +406,11 @@ struct SessionsSection: View {
             if let d = g.dir, !d.isEmpty { reveal(URL(fileURLWithPath: d)) }
         } label: {
             HStack(spacing: 7) {
-                Pulse(color: Color(Palette.client(g.client)), live: (parseDate(g.updated).map { Date().timeIntervalSince($0) < 120 }) ?? false)
-                Text(Palette.clientName(g.client)).font(Fonts.label)
-                Text(name(g.project)).font(Fonts.body).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                if g.count > 1 { Text("×\(g.count)").font(Fonts.caption).monospacedDigit().foregroundStyle(.tertiary) }
-                Spacer()
-                Text(relative(g.updated)).font(Fonts.caption).foregroundStyle(.tertiary)
+                Live(color: Color(Palette.client(g.client)), on: (parseDate(g.updated).map { Date().timeIntervalSince($0) < 120 }) ?? false)
+                Text(name(g.project)).font(Fonts.label).lineLimit(1).truncationMode(.tail)
+                Text(Palette.clientName(g.client) + (g.count > 1 ? " ×\(g.count)" : "")).font(Fonts.caption).monospacedDigit().foregroundStyle(.secondary).fixedSize()
+                Spacer(minLength: 8)
+                Text(relative(g.updated)).font(Fonts.caption).foregroundStyle(.tertiary).fixedSize()
             }
             .hoverRow()
         }
@@ -416,21 +427,17 @@ struct SessionsSection: View {
     }
 }
 
-struct Pulse: View {
+// Static on purpose: a looping animation keeps redrawing even while the panel is closed.
+struct Live: View {
     let color: Color
-    let live: Bool
-    @State private var on = false
+    let on: Bool
 
     var body: some View {
         ZStack {
-            if live {
-                Circle().fill(color.opacity(0.35)).frame(width: 12, height: 12).scaleEffect(on ? 1 : 0.5).opacity(on ? 0 : 1)
-                    .animation(.easeOut(duration: 1.4).repeatForever(autoreverses: false), value: on)
-            }
+            if on { Circle().fill(color.opacity(0.25)).frame(width: 13, height: 13) }
             Circle().fill(color).frame(width: 7, height: 7)
         }
-        .frame(width: 12, height: 12)
-        .onAppear { on = true }
+        .frame(width: 13, height: 13)
     }
 }
 
@@ -510,11 +517,17 @@ struct RecentSection: View {
                 ForEach(Array(recent.enumerated()), id: \.offset) { i, r in
                     Button { open = open == i ? nil : i } label: {
                         VStack(alignment: .leading, spacing: 3) {
-                            HStack(spacing: 6) {
-                                ClientLabel(agent: (r.agent ?? "").replacingOccurrences(of: "legacy-", with: ""))
-                                if let p = r.project, !p.isEmpty { Text(project(p)).font(Fonts.body).foregroundStyle(.secondary).lineLimit(1) }
-                                Spacer()
-                                Text(relative(r.ts)).font(Fonts.caption).foregroundStyle(.tertiary)
+                            HStack(spacing: 7) {
+                                let agent = (r.agent ?? "").replacingOccurrences(of: "legacy-", with: "")
+                                Dot(client: agent)
+                                if let p = r.project, !p.isEmpty {
+                                    Text(project(p)).font(Fonts.label).lineLimit(1)
+                                    Text(Palette.clientName(agent)).font(Fonts.caption).foregroundStyle(.secondary).fixedSize()
+                                } else {
+                                    Text(Palette.clientName(agent)).font(Fonts.label)
+                                }
+                                Spacer(minLength: 8)
+                                Text(relative(r.ts)).font(Fonts.caption).foregroundStyle(.tertiary).fixedSize()
                             }
                             Text(summary(r.text, full: open == i)).font(Fonts.body).foregroundStyle(.primary.opacity(0.85)).lineLimit(open == i ? 12 : 2)
                                 .lineSpacing(2)
