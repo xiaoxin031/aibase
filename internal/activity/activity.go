@@ -20,7 +20,7 @@ const (
 	Days       = 7
 	ActiveFor  = 15 * time.Minute
 	chunkLimit = 64 << 20
-	indexVer   = 1
+	indexVer   = 2
 )
 
 type Tokens struct {
@@ -67,6 +67,7 @@ type fileState struct {
 	IDs    []uint32 `json:"ids,omitempty"`
 	seen   map[uint32]bool
 	Last   Tokens            `json:"last"`
+	LastID uint32            `json:"last_id,omitempty"`
 	Days   map[string]Tokens `json:"days,omitempty"`
 }
 
@@ -271,26 +272,36 @@ func claudeLine(line []byte, st *fileState) {
 	if json.Unmarshal(line, &v) != nil || v.Type != "assistant" {
 		return
 	}
-	// A response is logged once per content block, and compaction or resume
-	// can copy it again far later in the file; count each message id once.
+	u := v.Message.Usage
+	t := Tokens{Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite}
+	// A response is logged once per content block while it streams, and only
+	// the last block carries the final output count; compaction or resume can
+	// copy it again far later in the file. Count each message id once, taking
+	// growth while it is still the latest message.
 	if id := v.Message.ID; id != "" {
+		h := fnv.New32a()
+		h.Write([]byte(id))
+		sum := h.Sum32()
+		if sum == st.LastID {
+			grown := Tokens{max(t.Input, st.Last.Input), max(t.Output, st.Last.Output), max(t.CacheRead, st.Last.CacheRead), max(t.CacheWrite, st.Last.CacheWrite)}
+			st.record(v.Timestamp, Tokens{grown.Input - st.Last.Input, grown.Output - st.Last.Output, grown.CacheRead - st.Last.CacheRead, grown.CacheWrite - st.Last.CacheWrite})
+			st.Last = grown
+			return
+		}
 		if st.seen == nil {
 			st.seen = make(map[uint32]bool, len(st.IDs))
 			for _, h := range st.IDs {
 				st.seen[h] = true
 			}
 		}
-		h := fnv.New32a()
-		h.Write([]byte(id))
-		sum := h.Sum32()
 		if st.seen[sum] {
 			return
 		}
 		st.seen[sum] = true
 		st.IDs = append(st.IDs, sum)
+		st.LastID, st.Last = sum, t
 	}
-	u := v.Message.Usage
-	st.record(v.Timestamp, Tokens{Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite})
+	st.record(v.Timestamp, t)
 }
 
 func codexLine(line []byte, st *fileState) {

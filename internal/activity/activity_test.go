@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -74,6 +75,10 @@ func TestCollect(t *testing.T) {
 	}
 	if got := r.Today["claude"]; got.Total() != 135 {
 		t.Fatalf("a repeated message id must count once: %+v", got)
+	}
+	write(t, claude, strings.Replace(msg, `"output_tokens":5`, `"output_tokens":9`, 1), true)
+	if got := Collect(home, idx, now).Today["claude"]; got.Output != 9 || got.Total() != 139 {
+		t.Fatalf("the final streamed block carries the real output count: %+v", got)
 	}
 	old2 := now.Add(-time.Hour)
 	os.Chtimes(claude, old2, old2)

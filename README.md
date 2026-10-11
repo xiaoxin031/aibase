@@ -101,7 +101,9 @@ A small native SwiftUI app (≈2.5 MB, universal, macOS 13+) that the installer 
 - **Active sessions**: every AI conversation that moved in the last 15 minutes, grouped by client and project; click one to open its folder. The count also shows next to the icon.
 - **Memory**: how full each store is (click to open it), notes, session logs, today's saves and auto-reviews.
 - **Recent session notes** (click to expand), and instant **search** across memory, notes and history. `⌘R` refreshes, `Esc` clears the search.
-- Switches to pause injection or auto-save, launch at login, open the data folder and run `doctor`.
+- The `⋯` menu: pause injection or auto-save, launch at login, open the data folder, run `doctor`.
+
+The app only displays things. Memory is read and written by hooks inside each AI client, so it keeps working whether the app is open, closed or quit.
 
 The same numbers are available everywhere with `aibase stats` (or `--json`).
 

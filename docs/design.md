@@ -135,7 +135,8 @@ Stop hook 在每轮结束时判断要不要让 AI 复盘保存（在当前会话
 macOS 菜单栏 App 在 `macos/`，原生 SwiftUI `MenuBarExtra`：
 - 用系统 swiftc 构建为通用二进制（`macos/build.sh`），本地签名
 - 默认装到 `~/Applications/Aibase.app`，登录时启动
-- 内容：今日 Token、近 7 天趋势、活跃会话、记忆用量、最近摘要、搜索、注入和自动保存开关
+- 内容：今日 Token、近 7 天趋势、活跃会话、记忆用量、最近摘要、搜索；注入和自动保存开关在 `⋯` 菜单
+- 只做展示：记忆读写全靠客户端 hook 调核心二进制，App 退出不影响
 - 图标为矢量绘制：两层底座加一颗星火
 - `--check` 校验与核心 JSON 的契约，`--snapshot` 离屏渲染文档截图
 

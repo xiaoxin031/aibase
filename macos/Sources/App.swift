@@ -74,60 +74,68 @@ struct Dashboard: View {
     @State private var query = ""
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             Header()
             if let s = store.stats {
+                SearchField(query: $query).padding(.top, 12).padding(.bottom, 4)
                 if query.isEmpty {
-                    TokensCard(a: s.activity)
-                    SessionsCard(sessions: s.activity.active ?? [])
-                    MemoryCard(s: s)
-                    if let recent = s.recent, !recent.isEmpty { RecentCard(recent: Array(recent.prefix(2))) }
+                    TokensSection(a: s.activity)
+                    SessionsSection(sessions: s.activity.active ?? [])
+                    MemorySection(s: s)
+                    if let recent = s.recent, !recent.isEmpty { RecentSection(recent: Array(recent.prefix(2))) }
+                } else {
+                    SearchResults().padding(.top, 8)
                 }
-                SearchField(query: $query)
-                if !query.isEmpty { SearchResults() }
-                Footer(s: s)
+                Footer()
             } else if let e = store.error {
                 Problem(message: e)
             } else {
                 ProgressView().controlSize(.small).frame(maxWidth: .infinity, minHeight: 120)
             }
         }
-        .padding(12)
-        .frame(width: 348)
+        .padding(.horizontal, 16).padding(.vertical, 14)
+        .frame(width: 340)
         .onAppear { store.refresh() }
         .onChange(of: query) { store.search($0) }
     }
 }
 
-struct Card<Content: View>: View {
+enum Fonts {
+    static let title = Font.system(size: 14, weight: .semibold)
+    static let body = Font.system(size: 12)
+    static let label = Font.system(size: 12, weight: .medium)
+    static let caption = Font.system(size: 11)
+    static let heading = Font.system(size: 11, weight: .semibold)
+}
+
+struct Block<Content: View>: View {
     let title: String
     var trailing: String? = nil
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary).textCase(.uppercase)
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title).font(Fonts.heading).foregroundStyle(.secondary)
                 Spacer()
-                if let t = trailing { Text(t).font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary) }
+                if let t = trailing { Text(t).font(Fonts.caption).monospacedDigit().foregroundStyle(.tertiary) }
             }
             content
         }
-        .padding(12)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.045)))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.06)))
+        .overlay(alignment: .top) { Divider() }
     }
 }
 
-// Clickable rows get a soft highlight that bleeds slightly past the card's text column.
+// Clickable rows get a soft highlight that bleeds slightly past the text column.
 struct HoverRow: ViewModifier {
     @State private var hover = false
 
     func body(content: Content) -> some View {
         content
             .padding(.horizontal, 6).padding(.vertical, 3)
-            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.primary.opacity(hover ? 0.07 : 0)))
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.primary.opacity(hover ? 0.07 : 0)))
             .padding(.horizontal, -6)
             .contentShape(Rectangle())
             .onHover { hover = $0 }
@@ -143,45 +151,45 @@ extension View {
     }
 }
 
+struct Dot: View {
+    let client: String
+    var body: some View { Circle().fill(Color(Palette.client(client))).frame(width: 7, height: 7) }
+}
+
 struct Header: View {
     @EnvironmentObject var store: Store
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(nsImage: Mark.appIcon(size: 64)).resizable().frame(width: 34, height: 34)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("aibase").font(.system(size: 15, weight: .bold, design: .rounded))
-                    if let v = store.stats?.version { Text(v).font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary) }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(nsImage: Mark.appIcon(size: 64)).resizable().frame(width: 22, height: 22)
+                Text("aibase").font(Fonts.title)
+                if let v = store.stats?.version { Text(v).font(Fonts.caption).foregroundStyle(.tertiary) }
+                Spacer()
+                Button { store.refresh() } label: {
+                    Image(systemName: "arrow.clockwise").rotationEffect(.degrees(store.loading ? 360 : 0))
+                        .animation(store.loading ? .linear(duration: 0.8).repeatForever(autoreverses: false) : .default, value: store.loading)
                 }
-                if let c = store.stats?.config {
-                    HStack(spacing: 5) {
-                        Circle().fill(c.inject && c.autosave ? Color.green : Color.orange).frame(width: 6, height: 6)
-                        Text(status(c))
-                        if let u = store.updated {
-                            Text("·").foregroundStyle(.tertiary)
-                            Text(L("更新于 ", "Updated ") + relative(u))
-                        }
-                    }
-                    .font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                .buttonStyle(IconButton()).keyboardShortcut("r").help(L("刷新 (⌘R)", "Refresh (⌘R)"))
+                SettingsMenu()
+            }
+            if let s = store.stats {
+                let (ok, text) = status(s)
+                HStack(spacing: 6) {
+                    Circle().fill(ok ? Color.green : Color.orange).frame(width: 6, height: 6)
+                    Text(text).lineLimit(1)
                 }
+                .font(Fonts.caption).foregroundStyle(.secondary)
             }
-            Spacer(minLength: 4)
-            Button { store.refresh() } label: {
-                Image(systemName: "arrow.clockwise").rotationEffect(.degrees(store.loading ? 360 : 0))
-                    .animation(store.loading ? .linear(duration: 0.8).repeatForever(autoreverses: false) : .default, value: store.loading)
-            }
-            .buttonStyle(IconButton()).keyboardShortcut("r").help(L("刷新 (⌘R)", "Refresh (⌘R)"))
-            SettingsMenu()
         }
     }
 
-    private func status(_ c: Stats.Config) -> String {
-        switch (c.inject, c.autosave) {
-        case (true, true): return L("运行正常", "Running")
-        case (false, _): return L("记忆注入已暂停", "Injection paused")
-        default: return L("自动保存已关闭", "Auto-save off")
-        }
+    private func status(_ s: Stats) -> (Bool, String) {
+        let wired = s.clients.filter(\.configured).count
+        if wired == 0 { return (false, L("还没有接入 AI 客户端", "No AI client connected")) }
+        if !s.config.inject { return (false, L("记忆注入已暂停", "Memory injection paused")) }
+        if !s.config.autosave { return (false, L("自动保存已关闭", "Auto-save is off")) }
+        return (true, L("记忆自动运行 · \(wired) 个客户端", "Memory on · \(wired) clients"))
     }
 }
 
@@ -189,9 +197,10 @@ struct IconButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12, weight: .medium))
-            .frame(width: 26, height: 26)
-            .background(Circle().fill(Color.primary.opacity(configuration.isPressed ? 0.14 : 0.06)))
-            .contentShape(Circle())
+            .foregroundStyle(.secondary)
+            .frame(width: 24, height: 24)
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.primary.opacity(configuration.isPressed ? 0.12 : 0)))
+            .contentShape(Rectangle())
     }
 }
 
@@ -200,6 +209,11 @@ struct SettingsMenu: View {
 
     var body: some View {
         Menu {
+            if let c = store.stats?.config {
+                Toggle(L("新会话自动带上记忆", "Load memory into new sessions"), isOn: Binding(get: { c.inject }, set: { store.set("inject", $0) }))
+                Toggle(L("会话结束自动保存", "Auto-save after sessions"), isOn: Binding(get: { c.autosave }, set: { store.set("autosave", $0) }))
+                Divider()
+            }
             Toggle(L("登录时启动", "Launch at login"), isOn: Binding(get: { store.launchAtLogin }, set: { store.setLaunchAtLogin($0) }))
             Toggle(L("菜单栏显示活跃会话数", "Show active sessions in menu bar"), isOn: $store.showCount)
             Divider()
@@ -207,34 +221,32 @@ struct SettingsMenu: View {
             Button(L("运行体检", "Run doctor")) { store.doctor() }
             Button(L("项目主页", "Project page")) { NSWorkspace.shared.open(URL(string: "https://github.com/xiaoxin031/aibase")!) }
             Divider()
-            Button(L("退出 aibase", "Quit aibase")) { NSApp.terminate(nil) }
+            Button(L("退出菜单栏（记忆照常运行）", "Quit menu bar app (memory keeps working)")) { NSApp.terminate(nil) }
         } label: {
             Image(systemName: "ellipsis")
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
-        .frame(width: 26, height: 26)
-        .background(Circle().fill(Color.primary.opacity(0.06)))
+        .frame(width: 24, height: 24)
     }
 }
 
-struct TokensCard: View {
+struct TokensSection: View {
     let a: Stats.Activity
     @State private var hover: Int?
 
-    private var clients: [(String, Tokens)] { a.today.sorted { $0.value.total > $1.value.total } }
+    private var clients: [(String, Tokens)] { a.today.filter { $0.value.total > 0 }.sorted { $0.value.total > $1.value.total } }
 
     var body: some View {
-        Card(title: L("今日 Token", "Tokens today"), trailing: trailing) {
+        Block(title: L("今日 Token", "Tokens today"), trailing: trailing) {
             HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(compact(a.todayTotal))
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .font(.system(size: 28, weight: .semibold))
                         .monospacedDigit()
                         .numeric()
-                        .foregroundStyle(LinearGradient(colors: [Color(Palette.indigo), Color(Palette.violet), Color(Palette.magenta)], startPoint: .leading, endPoint: .trailing))
                         .animation(.easeOut(duration: 0.3), value: a.todayTotal)
-                    Text(detail).font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(detail).font(Fonts.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 WeekBars(days: a.days, hover: $hover)
@@ -243,19 +255,21 @@ struct TokensCard: View {
                 GeometryReader { g in
                     HStack(spacing: 2) {
                         ForEach(clients, id: \.0) { name, t in
-                            Capsule().fill(Color(Palette.client(name)))
-                                .frame(width: max(4, (g.size.width - CGFloat(clients.count - 1) * 2) * CGFloat(t.total) / CGFloat(a.todayTotal)))
+                            Rectangle().fill(Color(Palette.client(name)))
+                                .frame(width: max(2, (g.size.width - CGFloat(clients.count - 1) * 2) * CGFloat(t.total) / CGFloat(a.todayTotal)))
                         }
                     }
+                    .clipShape(Capsule())
                 }
-                .frame(height: 6)
-                HStack(spacing: 12) {
+                .frame(height: 4)
+                VStack(spacing: 5) {
                     ForEach(clients, id: \.0) { name, t in
-                        HStack(spacing: 5) {
-                            Circle().fill(Color(Palette.client(name))).frame(width: 7, height: 7)
-                            Text(Palette.clientName(name)).font(.system(size: 11, weight: .medium))
-                            Text(compact(t.total)).font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
-                            Text("\(Int((Double(t.total) / Double(a.todayTotal) * 100).rounded()))%").font(.system(size: 10)).monospacedDigit().foregroundStyle(.tertiary)
+                        HStack(spacing: 7) {
+                            Dot(client: name)
+                            Text(Palette.clientName(name)).font(Fonts.label)
+                            Spacer()
+                            Text(compact(t.total)).font(Fonts.body).monospacedDigit()
+                            Text(percent(t.total, a.todayTotal)).font(Fonts.caption).monospacedDigit().foregroundStyle(.tertiary).frame(width: 34, alignment: .trailing)
                         }
                     }
                 }
@@ -271,7 +285,7 @@ struct TokensCard: View {
         }
         let used = a.days.filter { $0.total > 0 }
         guard !used.isEmpty else { return L("近 7 天", "Last 7 days") }
-        return L("日均 ", "Avg ") + compact(used.map(\.total).reduce(0, +) / Int64(used.count))
+        return L("7 天日均 ", "7-day avg ") + compact(used.map(\.total).reduce(0, +) / Int64(used.count))
     }
 
     private var detail: String {
@@ -280,9 +294,15 @@ struct TokensCard: View {
             t.input += v.input; t.output += v.output; t.cacheRead += v.cacheRead; t.cacheWrite += v.cacheWrite
         }
         let prompt = t.input + t.cacheRead + t.cacheWrite
-        let hit = prompt > 0 ? Int((Double(t.cacheRead) / Double(prompt) * 100).rounded()) : 0
-        return L("输入 \(compact(t.input)) · 输出 \(compact(t.output)) · 缓存命中 \(hit)%", "In \(compact(t.input)) · Out \(compact(t.output)) · Cache hit \(hit)%")
+        let hit = percent(t.cacheRead, prompt)
+        return L("输入 \(compact(t.input)) · 输出 \(compact(t.output)) · 缓存命中 \(hit)", "In \(compact(t.input)) · Out \(compact(t.output)) · Cache hit \(hit)")
     }
+}
+
+func percent(_ part: Int64, _ whole: Int64) -> String {
+    guard whole > 0 else { return "0%" }
+    let p = Double(part) / Double(whole) * 100
+    return p > 0 && p < 1 ? "<1%" : "\(Int(p.rounded()))%"
 }
 
 struct WeekBars: View {
@@ -305,17 +325,16 @@ struct WeekBars: View {
 
     var body: some View {
         let peak = max(days.map(\.total).max() ?? 1, 1)
-        HStack(alignment: .bottom, spacing: 4) {
+        HStack(alignment: .bottom, spacing: 5) {
             ForEach(Array(days.enumerated()), id: \.offset) { i, d in
                 let today = i == days.count - 1
-                VStack(spacing: 3) {
-                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-                        .fill(today ? AnyShapeStyle(LinearGradient(colors: [Color(Palette.violet), Color(Palette.indigo)], startPoint: .top, endPoint: .bottom)) : AnyShapeStyle(Color.primary.opacity(hover == i ? 0.38 : 0.16)))
-                        .frame(width: 10, height: max(3, 36 * CGFloat(d.total) / CGFloat(peak)))
-                        .opacity(hover == nil || hover == i ? 1 : 0.55)
+                VStack(spacing: 4) {
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(today ? Color(Palette.violet) : Color.primary.opacity(hover == i ? 0.4 : 0.16))
+                        .frame(width: 8, height: max(2, 34 * CGFloat(d.total) / CGFloat(peak)))
                     Text(Self.iso.date(from: d.date).map { Self.weekday.string(from: $0) } ?? "")
-                        .font(.system(size: 8, weight: today ? .bold : .regular))
-                        .foregroundStyle(today ? AnyShapeStyle(Color(Palette.violet)) : AnyShapeStyle(.tertiary))
+                        .font(.system(size: 9, weight: today ? .semibold : .regular))
+                        .foregroundStyle(today ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
                 }
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .contentShape(Rectangle())
@@ -327,7 +346,7 @@ struct WeekBars: View {
     }
 }
 
-struct SessionsCard: View {
+struct SessionsSection: View {
     let sessions: [Stats.Session]
 
     // Several sessions in the same client and folder collapse into one row.
@@ -355,19 +374,15 @@ struct SessionsCard: View {
     }
 
     var body: some View {
-        Card(title: L("活跃会话", "Active sessions"), trailing: sessions.isEmpty ? L("15 分钟内", "last 15 min") : L("\(sessions.count) 个运行中", "\(sessions.count) running")) {
+        Block(title: L("活跃会话", "Active sessions"), trailing: L("近 15 分钟", "last 15 min")) {
             if sessions.isEmpty {
-                HStack(spacing: 6) {
-                    Image(systemName: "moon.zzz").foregroundStyle(.tertiary)
-                    Text(L("当前没有正在进行的 AI 会话", "No AI sessions running right now")).foregroundStyle(.secondary)
-                }
-                .font(.system(size: 12))
+                Text(L("暂无进行中的 AI 会话", "No AI sessions right now")).font(Fonts.body).foregroundStyle(.tertiary)
             } else {
                 let g = groups
-                VStack(spacing: 2) {
+                VStack(spacing: 1) {
                     ForEach(g.prefix(5)) { row($0) }
                     if g.count > 5 {
-                        Text(L("还有 \(g.count - 5) 个项目", "\(g.count - 5) more projects")).font(.system(size: 11)).foregroundStyle(.tertiary).frame(maxWidth: .infinity, alignment: .leading)
+                        Text(L("还有 \(g.count - 5) 个", "\(g.count - 5) more")).font(Fonts.caption).foregroundStyle(.tertiary).frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
             }
@@ -378,17 +393,13 @@ struct SessionsCard: View {
         Button {
             if let d = g.dir, !d.isEmpty { NSWorkspace.shared.open(URL(fileURLWithPath: d)) }
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: 7) {
                 Pulse(color: Color(Palette.client(g.client)), live: (parseDate(g.updated).map { Date().timeIntervalSince($0) < 120 }) ?? false)
-                Text(Palette.clientName(g.client)).font(.system(size: 12, weight: .medium))
-                Text(name(g.project)).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                if g.count > 1 {
-                    Text("×\(g.count)").font(.system(size: 10, weight: .semibold)).monospacedDigit()
-                        .padding(.horizontal, 5).padding(.vertical, 1)
-                        .background(Capsule().fill(Color(Palette.client(g.client)).opacity(0.16)))
-                }
+                Text(Palette.clientName(g.client)).font(Fonts.label)
+                Text(name(g.project)).font(Fonts.body).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                if g.count > 1 { Text("×\(g.count)").font(Fonts.caption).monospacedDigit().foregroundStyle(.tertiary) }
                 Spacer()
-                Text(relative(g.updated)).font(.system(size: 11)).foregroundStyle(.tertiary)
+                Text(relative(g.updated)).font(Fonts.caption).foregroundStyle(.tertiary)
             }
             .hoverRow()
         }
@@ -423,43 +434,48 @@ struct Pulse: View {
     }
 }
 
-struct MemoryCard: View {
+struct MemorySection: View {
     let s: Stats
 
     var body: some View {
-        Card(title: L("记忆", "Memory")) {
-            VStack(spacing: 2) {
+        Block(title: L("记忆", "Memory"), trailing: L("今日保存 \(s.today["saves"] ?? 0) 次", "\(s.today["saves"] ?? 0) saves today")) {
+            VStack(spacing: 1) {
                 ForEach(s.memory, id: \.target) { u in
                     Button { if let p = u.path { NSWorkspace.shared.open(URL(fileURLWithPath: p)) } } label: { row(u) }
                         .buttonStyle(.plain)
                         .help(u.path ?? "")
                 }
             }
-            HStack(spacing: 0) {
-                Metric(value: s.notes, label: L("笔记", "notes"))
-                Metric(value: s.logs, label: L("会话日志", "session logs"))
-                Metric(value: s.today["saves"] ?? 0, label: L("今日写入", "saved today"))
-                Metric(value: s.today["reviews"] ?? 0, label: L("自动复盘", "auto-reviews"))
+            HStack(spacing: 14) {
+                count(s.notes, L("笔记", "notes"))
+                count(s.logs, L("会话日志", "session logs"))
+                count(s.today["reviews"] ?? 0, L("今日复盘", "reviews today"))
             }
-            .padding(.top, 2)
+        }
+    }
+
+    private func count(_ n: Int, _ label: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text("\(n)").font(Fonts.label).monospacedDigit().numeric().animation(.easeOut(duration: 0.3), value: n)
+            Text(label).font(Fonts.caption).foregroundStyle(.secondary)
         }
     }
 
     private func row(_ u: Stats.Usage) -> some View {
         let ratio = u.limit > 0 ? min(1, CGFloat(u.used) / CGFloat(u.limit)) : 0
-        return HStack(spacing: 8) {
-            Text(label(u.target)).font(.system(size: 11, weight: .medium)).frame(width: 56, alignment: .leading)
+        let full = ratio > 0.9
+        return HStack(spacing: 10) {
+            Text(label(u.target)).font(Fonts.body).frame(width: 44, alignment: .leading)
             GeometryReader { g in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.primary.opacity(0.08))
-                    Capsule().fill(ratio > 0.9 ? AnyShapeStyle(Color.orange) : AnyShapeStyle(LinearGradient(colors: [Color(Palette.indigo), Color(Palette.violet)], startPoint: .leading, endPoint: .trailing)))
-                        .frame(width: max(4, g.size.width * ratio))
+                    Capsule().fill(full ? Color.orange : Color(Palette.violet)).frame(width: max(3, g.size.width * ratio))
                 }
             }
-            .frame(height: 6)
-            Text("\(Int((ratio * 100).rounded()))%").font(.system(size: 10, weight: .medium)).monospacedDigit().frame(width: 30, alignment: .trailing)
-                .foregroundStyle(ratio > 0.9 ? AnyShapeStyle(Color.orange) : AnyShapeStyle(.secondary))
-                .help("\(u.used)/\(u.limit)")
+            .frame(height: 4)
+            Text("\(u.used) / \(u.limit)").font(Fonts.caption).monospacedDigit()
+                .foregroundStyle(full ? AnyShapeStyle(Color.orange) : AnyShapeStyle(.tertiary))
+                .frame(width: 74, alignment: .trailing)
         }
         .hoverRow()
     }
@@ -473,48 +489,35 @@ struct MemoryCard: View {
     }
 }
 
-struct Metric: View {
-    let value: Int
-    let label: String
-
-    var body: some View {
-        VStack(spacing: 1) {
-            Text("\(value)").font(.system(size: 15, weight: .semibold, design: .rounded)).monospacedDigit().numeric()
-                .animation(.easeOut(duration: 0.3), value: value)
-            Text(label).font(.system(size: 10)).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-struct AgentChip: View {
+struct ClientLabel: View {
     let agent: String
 
     var body: some View {
-        Text(Palette.clientName(agent))
-            .font(.system(size: 10, weight: .semibold))
-            .padding(.horizontal, 6).padding(.vertical, 2)
-            .background(Capsule().fill(Color(Palette.client(agent)).opacity(0.16)))
+        HStack(spacing: 5) {
+            Dot(client: agent)
+            Text(Palette.clientName(agent)).font(Fonts.label)
+        }
     }
 }
 
-struct RecentCard: View {
+struct RecentSection: View {
     let recent: [Stats.Recent]
     @State private var open: Int?
 
     var body: some View {
-        Card(title: L("最近会话摘要", "Recent session notes")) {
+        Block(title: L("最近会话摘要", "Recent sessions")) {
             VStack(spacing: 4) {
                 ForEach(Array(recent.enumerated()), id: \.offset) { i, r in
                     Button { open = open == i ? nil : i } label: {
                         VStack(alignment: .leading, spacing: 3) {
                             HStack(spacing: 6) {
-                                AgentChip(agent: (r.agent ?? "").replacingOccurrences(of: "legacy-", with: ""))
-                                if let p = r.project, !p.isEmpty { Text(p.split(separator: "-").dropLast().joined(separator: "-")).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1) }
+                                ClientLabel(agent: (r.agent ?? "").replacingOccurrences(of: "legacy-", with: ""))
+                                if let p = r.project, !p.isEmpty { Text(project(p)).font(Fonts.body).foregroundStyle(.secondary).lineLimit(1) }
                                 Spacer()
-                                Text(relative(r.ts)).font(.system(size: 10)).foregroundStyle(.tertiary)
+                                Text(relative(r.ts)).font(Fonts.caption).foregroundStyle(.tertiary)
                             }
-                            Text(summary(r.text, full: open == i)).font(.system(size: 12)).lineLimit(open == i ? 12 : 2)
+                            Text(summary(r.text, full: open == i)).font(Fonts.body).foregroundStyle(.primary.opacity(0.85)).lineLimit(open == i ? 12 : 2)
+                                .lineSpacing(2)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -525,6 +528,12 @@ struct RecentCard: View {
             }
             .animation(.easeOut(duration: 0.18), value: open)
         }
+    }
+
+    // Project keys end in a short hash of the path.
+    private func project(_ key: String) -> String {
+        guard let r = key.range(of: #"-[0-9a-f]{8}$"#, options: .regularExpression) else { return key }
+        return String(key[..<r.lowerBound])
     }
 
     // Summaries often open with their own date, which the timestamp already shows.
@@ -541,18 +550,18 @@ struct SearchField: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField(L("搜索记忆、笔记、历史会话…", "Search memory, notes, sessions…"), text: $query)
+            Image(systemName: "magnifyingglass").foregroundStyle(.tertiary)
+            TextField(L("搜索记忆、笔记、历史会话", "Search memory, notes, sessions"), text: $query)
                 .textFieldStyle(.plain)
                 .onExitCommand { query = "" }
             if store.searching { ProgressView().controlSize(.mini) }
             if !query.isEmpty {
-                Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }.buttonStyle(.plain)
+                Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }.buttonStyle(.plain)
             }
         }
-        .font(.system(size: 12))
-        .padding(.horizontal, 10).padding(.vertical, 7)
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.primary.opacity(0.06)))
+        .font(Fonts.body)
+        .padding(.horizontal, 9).padding(.vertical, 6)
+        .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.primary.opacity(0.06)))
     }
 }
 
@@ -562,88 +571,51 @@ struct SearchResults: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 2) {
                 if store.results.isEmpty && !store.searching {
-                    VStack(spacing: 6) {
-                        Image(systemName: "text.magnifyingglass").font(.system(size: 20)).foregroundStyle(.tertiary)
-                        Text(L("没有找到相关记忆", "No matches")).font(.system(size: 12)).foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity).padding(.top, 40)
+                    Text(L("没有找到相关记忆", "No matches")).font(Fonts.body).foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity).padding(.top, 40)
                 }
                 ForEach(store.results) { h in
                     Button { open = open == h.id ? nil : h.id } label: { hit(h) }.buttonStyle(.plain)
                 }
             }
         }
-        .frame(height: 360)
+        .frame(height: 380)
         .animation(.easeOut(duration: 0.18), value: open)
     }
 
     private func hit(_ h: Hit) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
-                Image(systemName: h.note ? "doc.text" : "clock.arrow.circlepath")
-                    .font(.system(size: 11)).foregroundStyle(Color(Palette.violet)).frame(width: 14)
-                Text(h.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                Image(systemName: h.note ? "doc.text" : "clock").font(.system(size: 10)).foregroundStyle(.secondary).frame(width: 12)
+                Text(h.title).font(Fonts.label).lineLimit(1)
                 Spacer(minLength: 4)
-                if !h.agent.isEmpty { AgentChip(agent: h.agent) }
-                if !h.note { Text(h.detail).font(.system(size: 10)).monospacedDigit().foregroundStyle(.tertiary) }
+                if !h.agent.isEmpty { ClientLabel(agent: h.agent) }
+                Text(h.detail).font(Fonts.caption).monospacedDigit().foregroundStyle(.tertiary).lineLimit(1)
             }
-            if h.note { Text(h.detail).font(.system(size: 10, design: .monospaced)).foregroundStyle(.tertiary).lineLimit(1) }
-            Text(h.body).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(open == h.id ? nil : 3)
+            Text(h.body).font(Fonts.body).foregroundStyle(.secondary).lineLimit(open == h.id ? nil : 2)
+                .lineSpacing(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
                 .textSelection(.enabled)
         }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(open == h.id ? 0.08 : 0.045)))
-        .contentShape(Rectangle())
+        .padding(.vertical, 5)
+        .hoverRow()
     }
 }
 
 struct Footer: View {
-    let s: Stats
-    @EnvironmentObject var store: Store
-
     var body: some View {
-        let wired = s.clients.filter(\.configured)
-        HStack(spacing: 14) {
-            Toggle(L("注入", "Inject"), isOn: Binding(get: { s.config.inject }, set: { store.set("inject", $0) }))
-            Toggle(L("自动保存", "Auto-save"), isOn: Binding(get: { s.config.autosave }, set: { store.set("autosave", $0) }))
-            Spacer()
-            HStack(spacing: 5) {
-                HStack(spacing: -3) {
-                    ForEach(wired.prefix(5), id: \.name) { c in
-                        Circle().fill(Color(Palette.client(c.name))).frame(width: 9, height: 9)
-                            .overlay(Circle().strokeBorder(Color(nsColor: .windowBackgroundColor), lineWidth: 1.5))
-                    }
-                }
-                Text(L("\(wired.count) 个客户端", "\(wired.count) clients")).foregroundStyle(.secondary)
-            }
-            .help(wired.map { Palette.clientName($0.name) }.joined(separator: ", "))
+        HStack(spacing: 5) {
+            Image(systemName: "checkmark.shield").font(.system(size: 10))
+            Text(L("AI 客户端自动读写记忆，退出本 App 也不受影响", "Memory runs inside your AI clients; quitting is safe"))
+                .lineLimit(1).minimumScaleFactor(0.85)
         }
-        .toggleStyle(Switch())
-        .font(.system(size: 11))
-        .padding(.horizontal, 2)
-    }
-}
-
-struct Switch: ToggleStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        Button { configuration.isOn.toggle() } label: {
-            HStack(spacing: 6) {
-                configuration.label
-                ZStack(alignment: configuration.isOn ? .trailing : .leading) {
-                    Capsule()
-                        .fill(configuration.isOn ? AnyShapeStyle(LinearGradient(colors: [Color(Palette.indigo), Color(Palette.violet)], startPoint: .leading, endPoint: .trailing)) : AnyShapeStyle(Color.primary.opacity(0.15)))
-                        .frame(width: 28, height: 16)
-                    Circle().fill(.white).shadow(color: .black.opacity(0.2), radius: 1, y: 0.5).frame(width: 12, height: 12).padding(2)
-                }
-                .animation(.spring(response: 0.25, dampingFraction: 0.8), value: configuration.isOn)
-            }
-        }
-        .buttonStyle(.plain)
+        .font(Fonts.caption).foregroundStyle(.tertiary)
+        .padding(.top, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .top) { Divider() }
     }
 }
 
@@ -653,8 +625,8 @@ struct Problem: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 22)).foregroundStyle(.orange)
-            Text(message).font(.system(size: 12)).multilineTextAlignment(.center).textSelection(.enabled)
+            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 20)).foregroundStyle(.orange)
+            Text(message).font(Fonts.body).multilineTextAlignment(.center).textSelection(.enabled)
             Button(L("重试", "Retry")) { store.refresh() }
         }
         .padding(.vertical, 20)
