@@ -73,3 +73,27 @@ jobs:
           ./install.ps1
           & "$env:LOCALAPPDATA\Programs\aibase\aibase.exe" version
           & "$env:LOCALAPPDATA\Programs\aibase\aibase.exe" context
+  codex-trust:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: install Codex, then aibase (setup must trust its Codex hooks)
+        shell: bash
+        run: |
+          npm install -g @openai/codex
+          codex --version
+          if [ "$RUNNER_OS" = Windows ]; then
+            pwsh -c 'irm https://raw.githubusercontent.com/${{ github.repository }}/main/install.ps1 | iex'
+            export PATH="$LOCALAPPDATA/Programs/aibase:$PATH"
+          else
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | sh
+            export PATH="$HOME/.local/bin:$PATH"
+          fi
+          aibase doctor | tee doctor.txt || true
+          grep -q "client.codex: hooks trusted and enabled in Codex" doctor.txt
