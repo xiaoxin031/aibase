@@ -42,6 +42,7 @@ func (t *Tokens) add(o Tokens) {
 type Session struct {
 	Client  string    `json:"client"`
 	Project string    `json:"project"`
+	Dir     string    `json:"dir,omitempty"`
 	Updated time.Time `json:"updated"`
 }
 
@@ -134,7 +135,7 @@ func Collect(home, indexPath string, now time.Time) Report {
 				st.Sub = true
 			}
 			if !st.Sub && now.Sub(info.ModTime()) < ActiveFor {
-				active = append(active, Session{Client: r.client, Project: project(st.Cwd, home), Updated: info.ModTime()})
+				active = append(active, Session{Client: r.client, Project: project(st.Cwd, home), Dir: st.Cwd, Updated: info.ModTime()})
 			}
 			return nil
 		})

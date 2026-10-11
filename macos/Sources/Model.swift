@@ -13,7 +13,7 @@ struct Tokens: Decodable {
 struct Stats: Decodable {
     struct Config: Decodable { let inject: Bool; let autosave: Bool }
     struct Day: Decodable { let date: String; let total: Int64; let clients: [String: Int64] }
-    struct Session: Decodable { let client: String; let project: String; let updated: String }
+    struct Session: Decodable { let client: String; let project: String; let dir: String?; let updated: String }
     struct Activity: Decodable {
         let today: [String: Tokens]
         let todayTotal: Int64
@@ -82,6 +82,7 @@ final class Store: ObservableObject {
     @Published var stats: Stats?
     @Published var error: String?
     @Published var loading = false
+    @Published var updated: Date?
     @Published var results: [Hit] = []
     @Published var searching = false
     @Published var showCount = UserDefaults.standard.object(forKey: "showCount") as? Bool ?? true {
@@ -114,6 +115,7 @@ final class Store: ObservableObject {
                         let d = JSONDecoder()
                         d.keyDecodingStrategy = .convertFromSnakeCase
                         self.stats = try d.decode(Stats.self, from: data)
+                        self.updated = Date()
                         self.error = nil
                     } catch {
                         self.error = L("无法解析 aibase 输出，请更新 aibase", "Unexpected aibase output; update aibase")
@@ -179,17 +181,31 @@ final class Store: ObservableObject {
 
 struct Hit: Identifiable {
     let id = UUID()
+    let note: Bool
     let title: String
-    var body: String
+    var detail = ""
+    var agent = ""
+    var body = ""
 
-    // Search output: a count line, then "[note] …" / "[log …]" headers each followed by a snippet.
+    // Search output: a count line, then "[note] slug — desc" / "[log date path · agent]"
+    // headers, each followed by a snippet.
     static func parse(_ text: String) -> [Hit] {
         var hits: [Hit] = []
         for line in text.components(separatedBy: "\n") {
-            if line.hasPrefix("[note]") || line.hasPrefix("[log ") {
-                hits.append(Hit(title: line, body: ""))
-            } else if !hits.isEmpty, !line.trimmingCharacters(in: .whitespaces).isEmpty {
-                hits[hits.count - 1].body += (hits[hits.count - 1].body.isEmpty ? "" : " ") + line.trimmingCharacters(in: .whitespaces)
+            if line.hasPrefix("[note] ") {
+                let rest = line.dropFirst(7)
+                let parts = rest.components(separatedBy: " — ")
+                hits.append(Hit(note: true, title: parts.count > 1 ? parts.dropFirst().joined(separator: " — ") : String(rest), detail: parts[0]))
+            } else if line.hasPrefix("[log "), line.hasSuffix("]") {
+                let head = line.dropFirst(5).dropLast()
+                let fields = head.components(separatedBy: " · ")
+                let date = String(fields[0].prefix(10))
+                let path = fields[0].dropFirst(min(11, fields[0].count))
+                hits.append(Hit(note: false, title: path.isEmpty ? L("会话日志", "Session log") : URL(fileURLWithPath: String(path)).lastPathComponent,
+                                detail: date, agent: fields.count > 1 ? fields[1].replacingOccurrences(of: "legacy-", with: "") : ""))
+            } else if !hits.isEmpty {
+                let t = line.replacingOccurrences(of: #"\*\*|`|^#+ "#, with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+                if !t.isEmpty { hits[hits.count - 1].body += (hits[hits.count - 1].body.isEmpty ? "" : " ") + t }
             }
         }
         return hits
@@ -222,7 +238,10 @@ func parseDate(_ s: String) -> Date? {
 }
 
 func relative(_ s: String) -> String {
-    guard let d = parseDate(s) else { return "" }
+    parseDate(s).map(relative) ?? ""
+}
+
+func relative(_ d: Date) -> String {
     if Date().timeIntervalSince(d) < 60 { return L("刚刚", "just now") }
     let f = RelativeDateTimeFormatter()
     f.unitsStyle = .short

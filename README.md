@@ -97,10 +97,10 @@ Run `aibase setup` again whenever you install a new AI client. It's idempotent.
 
 A small native SwiftUI app (≈2.5 MB, universal, macOS 13+) that the installer adds automatically on a Mac and starts at login. Click the spark-on-layers icon in the menu bar to see:
 
-- **Tokens today** across Claude Code, Codex and Gemini, with input/output/cache-hit breakdown and a 7-day trend, read locally from the transcripts those clients already write. Nothing is sent anywhere.
-- **Active sessions**: every AI conversation that moved in the last 15 minutes, per client and project. The count also shows next to the icon.
+- **Tokens today** across Claude Code, Codex and Gemini, with input/output/cache-hit breakdown and a 7-day trend (hover a bar for that day), read locally from the transcripts those clients already write. Nothing is sent anywhere.
+- **Active sessions**: every AI conversation that moved in the last 15 minutes, grouped by client and project; click one to open its folder. The count also shows next to the icon.
 - **Memory**: how full each store is (click to open it), notes, session logs, today's saves and auto-reviews.
-- **Recent session notes**, and instant **search** across memory, notes and history.
+- **Recent session notes** (click to expand), and instant **search** across memory, notes and history. `⌘R` refreshes, `Esc` clears the search.
 - Switches to pause injection or auto-save, launch at login, open the data folder and run `doctor`.
 
 The same numbers are available everywhere with `aibase stats` (or `--json`).

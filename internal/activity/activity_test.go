@@ -59,6 +59,9 @@ func TestCollect(t *testing.T) {
 	for _, s := range r.Active {
 		projects[s.Client] = s.Project
 	}
+	if r.Active[0].Dir == "" {
+		t.Fatalf("active sessions carry their directory: %+v", r.Active)
+	}
 	if projects["claude"] != "app" || projects["codex"] != "~" {
 		t.Fatalf("projects: %+v", projects)
 	}
