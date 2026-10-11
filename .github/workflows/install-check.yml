@@ -90,7 +90,7 @@ jobs:
           codex --version
           if [ "$RUNNER_OS" = Windows ]; then
             pwsh -c 'irm https://raw.githubusercontent.com/${{ github.repository }}/main/install.ps1 | iex'
-            export PATH="$LOCALAPPDATA/Programs/aibase:$PATH"
+            export PATH="$(cygpath "$LOCALAPPDATA")/Programs/aibase:$PATH"
           else
             curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | sh
             export PATH="$HOME/.local/bin:$PATH"
