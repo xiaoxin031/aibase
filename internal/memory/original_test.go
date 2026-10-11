@@ -143,6 +143,24 @@ func TestStopHook(t *testing.T) {
 	if turn(`{"text":"plain"}`, false) {
 		t.Fatal("old edits must not retrigger")
 	}
+	turn(`{}`, true)
+	if turn(`{"type":"custom_tool_call","name":"exec"}`+"\n"+`{"type":"tool_use","name":"Bash"}`, false) {
+		t.Fatal("light tool use must not trigger")
+	}
+	if !turn(`{"type":"response_item","payload":{"type":"function_call"}}`+"\n"+`{"type":"tool_use","name":"Read"}`, false) {
+		t.Fatal("review expected after sustained tool use across turns")
+	}
+	turn(`{}`, true)
+	if turn(`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"# AGENTS.md instructions: always remember"}]}}`, false) {
+		t.Fatal("injected instructions are not user cues")
+	}
+	if !turn(`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"以后统一用 Go 1.26"}]}}`, false) {
+		t.Fatal("review expected after a Codex user cue")
+	}
+	turn(`{}`, true)
+	if !turn(`{"type":"user","message":{"role":"user","content":"Remember: deploy from main only"}}`, false) {
+		t.Fatal("review expected after a Claude user cue")
+	}
 }
 
 func TestSessionLogReplaces(t *testing.T) {
